@@ -45,7 +45,8 @@
 - [x] **M5 消息组装（2026-08-26 完成）**：`src/m5_formatter.py`（纯函数，模板/段落边界分片/图片透传，契约复用 models.py）+ `tests/test_m5_formatter.py`（26/26 通过，M1–M5 合计 113/113）+ `scripts/acceptance_m5.py`（ALL PASS）。详见 `docs/modules/M5-formatter-worklog.md`。
 - [x] **M6 QQ 推送（2026-08-26 全部完成）**：`src/m6_notifier.py`（OneBot 11 `send_group_msg`，多群/群间间隔/重试/容错，契约复用 models.py）+ `tests/test_m6_notifier.py`（33/33 通过，全仓 146/146）+ `scripts/acceptance_m6.py`（配置面 + dry-run ALL PASS）。**NapCat 环境已配置、live 真实推送验收通过（2026-08-26）**：NapCatQQ-Desktop v3.1.10 + NapCat v4.18.19（本机 Windows），bot 小号 1666562110（時津風）登录，OneBot 11 HTTP `127.0.0.1:3000` 生效；`config.yaml` 建好 `napcat` 段、`.env` 补 `NAPCAT_*`；`python scripts/acceptance_m6.py --group 827029417` → 666 群收到测试消息，`[ALL PASS]`。运维/配置/踩坑详见 `docs/modules/M6-napcat-setup.md`，实现日志见 `docs/modules/M6-notifier-worklog.md`。
 - [x] **M7 主控/调度（2026-08-26 完成）**：`src/main.py`（最终入口：每次启动交互询问监听企划 + 常驻轮询串联 M1→M6 + **本地留档**（原文/译文/图片，按新闻日期分文件夹）+ 失败自动补救 + `--once`/`--dry-run`/`--no-archive`）+ `scripts/start_bot.cmd`（后台挂载：新开 M7 Bot 窗口，脚本立即返回）+ `scripts/stop_bot.cmd` + `tests/test_m7_main.py`（21/21 通过，全仓 167/167）。dry-run 全链路验收通过（真实抓取 SC 企划→增量→详情→真实翻译→留档 `data/archive/2026-08-26/01_19692/`）。详见 `docs/modules/M7-orchestrator.md`（交接规格）与 `docs/modules/M7-orchestrator-worklog.md`（日志）。
-- [ ] 等待下一步指令（M9 迁移准备）
+- [x] **M9 迁移准备（2026-08-27）**：代码已打包并上传 GitHub **`SUZUNAMI/imas-qq-bot`**（私有仓库，116 文件，排除 `config.yaml`/`.env`/`vendor/`/`data/`/`tools/` 等敏感与运行时产物）；部署脚本 **`setup_server.ps1`** 就绪（Python/Edge 检查、pip 依赖、配置模板生成、冒烟测试）。迁移计划见 `docs/modules/M9-migration-plan.md`。
+- [ ] **M9 服务器部署（进行中）**：目标服务器 8.134.167.32（阿里云 ECS · Windows Server 2025 · 1C2G）；SSH 22022 已通但受云盾来源 IP 限流（段级拉黑），改为 GitHub 拉取 + 用户手动部署；待 NapCat 安装登录、WinSW 服务化、验收。
 
 ## 5. 工作原则
 

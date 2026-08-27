@@ -29,7 +29,7 @@
 | M6 QQ 推送 | [M6-notifier.md](modules/M6-notifier.md) | ✅ 实现+单测+live 验收全部完成（2026-08-26：43/43 单测、全仓 193/193、NapCat 配置完成、真实推送 666 群成功；**合并转发** live 验收通过） |
 | M7 主控调度 | [M7-orchestrator.md](modules/M7-orchestrator.md) | ✅ 已完成（2026-08-26：主控 + 企划交互 + 本地留档 + 翻译失败直发原文 + config 显式配置 + 启动时间截断防刷屏 + 合并转发推送 + 开机/关机双群通知（文案 config 可自定义）+ 后台挂载脚本，单测 43/43、全仓 205/205、dry-run 全链路验收通过） |
 | M8 配置/密钥 | 未拆分，见 [module-specs.md](module-specs.md) §2 | ⏳ 未拆分 |
-| M9 打包迁移 | [../agent.md](../agent.md) §1 | ⏳ 未开始 |
+| M9 打包迁移 | [../agent.md](../agent.md) §1 · [M9-migration-plan.md](modules/M9-migration-plan.md) | 🔄 进行中（2026-08-27：代码已打包上传 GitHub `SUZUNAMI/imas-qq-bot`（私有），部署脚本 `setup_server.ps1` 就绪，待服务器部署） |
 
 ## 3. 工作日志（docs/modules/）
 

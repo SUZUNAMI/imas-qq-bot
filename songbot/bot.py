@@ -961,12 +961,13 @@ class SongBot:
 
     @staticmethod
     def _setlist_has_colors(sl: Setlist) -> bool:
-        """setlist 是否带有效演者颜色（任一 track 有非空 performer_colors 即视为有效）。"""
+        """setlist 是否带有效演者颜色（任一 track 有非 None 的 performer_colors 即视为有效）。"""
         if sl is None:
             return False
-        if any(t.performer_colors for t in (sl.tracks or [])):
-            return True
-        return any(sl.performer_colors or [])
+        for t in (sl.tracks or []):
+            if t.performer_colors and any(c is not None for c in t.performer_colors):
+                return True
+        return any(c is not None for c in (sl.performer_colors or []))
 
     def _cache_setlist(self, url: str, sl: Setlist) -> None:
         """把网络抓到的 setlist 顺手写回全量缓存（网络不稳时逐步补齐；失败仅告警）。"""

@@ -947,10 +947,26 @@ class SongBot:
         return Path(base) / datetime.now().strftime("%Y%m%d_%H%M%S")
 
     def _cached_setlist(self, url: str) -> Optional[Setlist]:
-        """全量 setlist 缓存查询（S8 构建索引时顺带缓存；未命中返回 None）。"""
+        """全量 setlist 缓存查询（S8 构建索引时顺带缓存；未命中返回 None）。
+
+        M9 防御：缓存若缺演者颜色（构建时颜色表缺失等历史原因），
+        视为未命中，由调用方重新实时抓取（保证渲染有色）。
+        """
         if self.song_index is not None:
-            return self.song_index.setlists.get(url)
+            sl = self.song_index.setlists.get(url)
+            if sl is not None and not self._setlist_has_colors(sl):
+                return None
+            return sl
         return None
+
+    @staticmethod
+    def _setlist_has_colors(sl: Setlist) -> bool:
+        """setlist 是否带有效演者颜色（任一 track 有非空 performer_colors 即视为有效）。"""
+        if sl is None:
+            return False
+        if any(t.performer_colors for t in (sl.tracks or [])):
+            return True
+        return any(sl.performer_colors or [])
 
     def _cache_setlist(self, url: str, sl: Setlist) -> None:
         """把网络抓到的 setlist 顺手写回全量缓存（网络不稳时逐步补齐；失败仅告警）。"""

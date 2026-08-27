@@ -1,34 +1,25 @@
 # 服务器部署手册（Windows Server）
 
 > 项目：爱马仕官方新闻 QQ 转发机器人（M7）+ songbot 曲库查询（独立进程）
-> 仓库：https://github.com/SUZUNAMI/imas-qq-bot（私有）
+> 仓库：https://github.com/SUZUNAMI/imas-qq-bot（公开）
 > 目标：Windows Server 2025 · 需要管理员权限
 
 ---
 
-## 第 0 步：装 Git（服务器上没有的话）
+## 第 1 步：下载代码（无需 git / winget）
 
-```powershell
-winget install Git.Git
-# 或手动下载安装 https://git-scm.com/download/win
-```
-
-## 第 1 步：拿到代码（二选一）
-
-**方式 A：git clone（需要 GitHub 凭据）**
-在 GitHub 设置 → Developer settings → Fine-grained tokens 创建一个只读 token
-（Repository access: 仅 imas-qq-bot，Permissions: Contents=Read-only），然后：
+服务器 PowerShell（管理员）直接下载 zip 并解压：
 
 ```powershell
 cd C:\
-git clone https://<你的GitHub用户名>:<PAT>@github.com/SUZUNAMI/imas-qq-bot.git
-cd imas-qq-bot
+Invoke-WebRequest -Uri "https://github.com/SUZUNAMI/imas-qq-bot/archive/refs/heads/main.zip" -OutFile "C:\imas-qq-bot.zip"
+Expand-Archive -Path "C:\imas-qq-bot.zip" -DestinationPath "C:\" -Force
+Rename-Item "C:\imas-qq-bot-main" "C:\imas-qq-bot"
+cd C:\imas-qq-bot
 ```
 
-**方式 B：下载 zip（同样需要认证）**
-浏览器登录 GitHub 后打开
-`https://github.com/SUZUNAMI/imas-qq-bot/archive/refs/heads/main.zip`，
-解压到 `C:\imas-qq-bot`。
+> 解压出的目录名是 `imas-qq-bot-main`，已重命名为 `imas-qq-bot`。
+> 以后要更新代码：删掉 `C:\imas-qq-bot` 后重跑本步即可（或保留后用 git clone）。
 
 ## 第 2 步：运行部署脚本（管理员 PowerShell）
 

@@ -4,3 +4,10 @@
 # 本机沙箱因 pip 被拦截，依赖已 vendor 化到 vendor/（见 scripts/fetch_vendor_deps.py）
 httpx>=0.28
 python-dotenv>=1.0
+
+# M2 详情解析（HTML 解析）
+beautifulsoup4>=4.12
+
+# songbot S4 图片渲染（PIL 合成 + playwright 驱动系统 Edge，免下载 Chromium）
+Pillow>=10.0
+playwright>=1.40

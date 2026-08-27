@@ -19,8 +19,9 @@ vendor/
 # 迁移工具与密钥（绝不上传：含服务器密码 askpass.cmd、SSH 私钥 id_ed25519）
 tools/
 
-# 数据缓存（服务器上由 bot 自动重建）
-data/
+# 数据缓存（服务器上由 bot 自动重建；颜色表除外——S11 早期演者色依赖，必须随代码分发）
+data/*
+!data/songbot_site_colors.json
 
 # 子工作区（songbot 已合并回主仓库，不单独上传）
 子任务-曲库查询/

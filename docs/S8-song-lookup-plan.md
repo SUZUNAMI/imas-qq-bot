@@ -50,6 +50,7 @@ flowchart LR
 
 - 与 `live` 一致的两段式；`song` 首段产出「该歌出现过的 LIVE」列表并 `SessionStore` 记候选，第二段选序号 → `_full_flow`。
 - 歌名多义时多一层「选歌」：候选歌名 → 选歌 → 列 LIVE → 选 LIVE（会话 context 需新增 `CTX_SONG_CANDIDATES` / `CTX_SONG_LIVES` 两种 kind）。
+- 每轮交互都需 @bot（未 @ 忽略，2026-08-27 拍板）；「出现过的 LIVE」列表走 `render_list` 图片（S4 泛化，带「回复序号」footer）。
 
 ## 4. 契约扩展（`songbot/models_song.py`）
 
@@ -72,7 +73,7 @@ flowchart LR
 |---|---|---|
 | **S8.1 `s8_song_index.py`** | `build_song_index(events, fetch_setlist)` 全量构建；`refresh_song_index(index, events, fetch_setlist)` 增量（diff 详情 URL，仅抓新增）；`save/load` 落盘 JSON 缓存 | 索引覆盖全部事件；增量只抓新增 URL；缓存读回一致 |
 | **S8.2 歌名匹配** | `match_songs(query, index)`：复用 `normalize` + 打分，唯一命中或候选 | 样本（Marionetteは眠らない / Dance in the Light 等）命中正确、多候选排序合理 |
-| **S8.3 bot 集成** | `bot.py` 加 `song` 分支（`split_command` 后）；两段式复用会话；`USAGE` 更新 | 测试群 `@bot song` 两段走通（live） |
+| **S8.3 bot 集成** | `bot.py` 加 `song` 分支（`split_command` 后）；两段式复用会话；`USAGE` 更新；**追加：列表走 `render_list` 图片 + @-only 门控** | 测试群 `@bot song` 两段走通（live） |
 
 ## 6. 风险与对策
 

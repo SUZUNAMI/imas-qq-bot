@@ -1,18 +1,23 @@
-"""S4 图片渲染 — 无头浏览器（Edge）高保真截图 Setlist → PNG.
+"""S4 图片渲染 — 无头浏览器（Edge）高保真截图 Setlist/列表 → PNG.
 
-施工图：docs/S1-S7-taskplan.md §S4（首选 playwright + 兜底 Edge CLI + Pillow 裁边）。
+施工图：docs/S1-S7-taskplan.md §S4（首选 playwright + 兜底 Edge CLI + Pillow 裁边）；
+S10 泛化：docs/S10-list-image-atbot-plan.md §2.1（共享管线 render_html_pages + render_list）。
 
 方案要点
 --------
 - **首选**：vendor 化 playwright（见 scripts/fetch_s4_vendor_deps.py），
   ``chromium.launch(channel="msedge")`` 驱动系统 Edge（免下载 Chromium）。
-  元素级截图（精确裁剪）；先整表量高，超阈值（``MAX_PAGE_HEIGHT``）按行比例分页，
-  每页 HTML 自带标题/日期/出演者头部与表头。
+  元素级截图（精确裁剪）；setlist 先整表量高，超阈值（``MAX_PAGE_HEIGHT``）按行比例分页，
+  每页 HTML 自带标题/日期/出演者头部与表头；列表（render_list）用估算行高分页。
+- **共享管线**（S10）：``render_html_pages(pages_html, out_dir, ...)`` 接受**已预分页的
+  HTML 字符串列表**逐页截图；``render_setlist`` / ``render_list`` 只负责「分页 → 组装 HTML」，
+  截图统一走该管线（playwright 首选，失败回退 Edge CLI + Pillow 裁白边）。
 - **兜底**（playwright 不可用 / 启动失败 / 无 Edge）：Edge headless CLI 整页截图 +
   Pillow ``getbbox()`` 裁白边；分页用估算行高（``ROW_HEIGHT_EST``）。
 - **徽章色**：硬编码 ``BRAND_COLORS``（提取自 imas-db.jp 官方 ``bg-imas-brand-*``
   对应的 ``--imas-color-brand-*`` CSS 变量，2026-08-27 抓取 imas.min.css）。
-- **契约**：只消费 ``models_song.Setlist``（S1 冻结），不改模型、不联网。
+- **契约**：只消费 ``models_song.Setlist``（S1 冻结）与 ``(主文本, 副文本)`` 行（S10），
+  不改模型、不联网。
 - **依赖兜底**：playwright / PIL import 失败回退 ``vendor/``（照抄 S1/S2 顶部写法）。
 
 运行自测（离线，用 fixture 详情页）::
@@ -22,14 +27,18 @@
 
 from __future__ import annotations
 
+import atexit
+import hashlib
 import html as html_mod
 import json
 import logging
 import os
+import queue
 import re
 import subprocess
 import sys
 import tempfile
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Union
@@ -244,6 +253,24 @@ table.tracklist tr td:nth-child(2) .badge { text-shadow: none; }
          border-radius: .375rem; vertical-align: middle; white-space: nowrap; }
 """
 
+# S10：列表类（候选/子列表/时间筛选/歌曲出现/bindings）自包含 HTML 样式。
+# 版式沿用 setlist 模板（同字体/标题/宽度/白底），行样式为「序号 + 主文本 + 副文本（弱化色）」。
+_LIST_CSS = """\
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #fff; }
+body { font-family: "Yu Gothic UI","Yu Gothic","Meiryo","Segoe UI",sans-serif; color: #212529; }
+#render-root { padding: 18px 22px; width: 880px; }
+h1 { font-size: 1.55rem; font-weight: 700; line-height: 1.35; margin: 0 0 .4rem;
+     padding-bottom: .3rem; border-bottom: 2px solid #ddd; color: #666; text-shadow: #ddd 1px 1px 1px; }
+.list-row { display: flex; gap: .7rem; padding: .3rem .2rem; border-bottom: 1px solid #eee;
+            align-items: baseline; }
+.list-row .idx { flex: none; width: 2.8rem; text-align: right; color: #666;
+                 font-variant-numeric: tabular-nums; }
+.list-row .main { flex: 1 1 auto; font-weight: 600; }
+.list-row .sub { flex: none; color: #868e96; font-size: 88.8%; white-space: nowrap; }
+.list-footer { color: #868e96; font-size: 88.8%; margin-top: .6rem; }
+"""
+
 
 # ---------------------------------------------------------------------------
 # 纯函数（离线可单测）
@@ -364,7 +391,7 @@ def _title_slug(title: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 渲染引擎
+# 渲染引擎（S10 共享管线：render_html_pages 接受已预分页的 HTML 字符串列表）
 # ---------------------------------------------------------------------------
 def _wait_fonts(page) -> None:
     """等待网页字体就绪（日文无缺字的前提：等字体加载完再截图）。"""
@@ -374,55 +401,176 @@ def _wait_fonts(page) -> None:
         page.wait_for_timeout(300)
 
 
-def _render_playwright_pages(setlist: Setlist, out_dir: Path) -> list[Path]:
-    """playwright → Edge channel：整表量高 → 分页 → 逐页元素级截图。"""
+# ---------------------------------------------------------------------------
+# 渲染工作线程（2026-08-27）：playwright 同步 API **非线程安全**（跨线程会报
+# "cannot switch to a different thread"，且每次冷启动 Edge ~7s）。故起一个常驻
+# worker 线程**独占**浏览器，所有「量高/截图」经队列串行执行：复用浏览器（首张
+# ~7s、后续 ~1s）又不跨线程。playwright 不可用时 worker 不启动，量高返回 None、
+# 渲染抛错回退 Edge CLI。
+# ---------------------------------------------------------------------------
+_render_queue = queue.Queue()
+_render_worker: Optional[threading.Thread] = None
+_render_worker_lock = threading.Lock()
+
+
+def _measure_in_browser(browser, html: str) -> int:
+    page = browser.new_page(device_scale_factor=DEVICE_SCALE)
+    try:
+        page.set_content(html, wait_until="load")
+        _wait_fonts(page)
+        return int(page.evaluate(
+            "document.querySelector('#render-root').getBoundingClientRect().height"))
+    finally:
+        page.close()
+
+
+def _render_in_browser(browser, pages_html: list[str], out_dir: Path, slug: str) -> list[Path]:
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     paths: list[Path] = []
-    with sync_playwright() as p:
-        browser = p.chromium.launch(channel=EDGE_CHANNEL, headless=True)
-        try:
-            page = browser.new_page(device_scale_factor=DEVICE_SCALE)
-            page.set_content(build_html(setlist), wait_until="load")
+    page = browser.new_page(device_scale_factor=DEVICE_SCALE)
+    try:
+        for i, html in enumerate(pages_html, 1):
+            page.set_content(html, wait_until="load")
             _wait_fonts(page)
-            height = float(
-                page.evaluate(
-                    "document.querySelector('#render-root').getBoundingClientRect().height"
-                )
-            )
-            chunks = _chunk_tracks(setlist.tracks, int(height))
-            slug = _title_slug(setlist.title)
-            for i, chunk in enumerate(chunks, 1):
-                page.set_content(build_html(setlist, tracks=chunk), wait_until="load")
-                _wait_fonts(page)
-                png = out_dir / f"{slug}_{i:02d}.png"
-                page.locator("#render-root").screenshot(path=str(png))
-                paths.append(png)
-        finally:
-            browser.close()
+            png = out_dir / f"{slug}_{i:02d}.png"
+            page.locator("#render-root").screenshot(path=str(png))
+            paths.append(png)
+    finally:
+        page.close()
     return paths
 
 
-def _render_cli_pages(setlist: Setlist, out_dir: Path) -> list[Path]:
-    """兜底：Edge headless CLI 整页截图 + Pillow 裁白边（估算行高分页）。"""
+def _render_worker_loop() -> None:
+    """渲染 worker 线程体：独占 playwright 浏览器，串行处理量高/截图请求。"""
+    pw = None
+    browser = None
+    if _PLAYWRIGHT_OK:
+        try:
+            pw = sync_playwright().start()
+            browser = pw.chromium.launch(channel=EDGE_CHANNEL, headless=True)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("渲染 worker 启动浏览器失败（渲染将回退 Edge CLI）: %s: %s",
+                           type(exc).__name__, exc)
+            browser = None
+    while True:
+        job = _render_queue.get()
+        if job is None:              # 停止哨兵
+            break
+        kind, payload, result_queue = job
+        try:
+            if browser is None:
+                raise RuntimeError("playwright 浏览器不可用（渲染 worker 启动失败）")
+            if kind == "measure":
+                result_queue.put(("ok", _measure_in_browser(browser, payload)))
+            elif kind == "render":
+                result_queue.put(("ok", _render_in_browser(browser, *payload)))
+            else:  # pragma: no cover
+                result_queue.put(("err", RuntimeError(f"未知渲染任务类型 {kind!r}")))
+        except Exception as exc:  # noqa: BLE001 — 单次失败返回错误，不中断 worker
+            result_queue.put(("err", exc))
+    if browser is not None:
+        try:
+            browser.close()
+        except Exception:  # noqa: BLE001
+            pass
+    if pw is not None:
+        try:
+            pw.stop()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def _ensure_render_worker() -> None:
+    """惰性启动渲染 worker 线程（进程内单例，幂等）。"""
+    global _render_worker
+    with _render_worker_lock:
+        if _render_worker is None or not _render_worker.is_alive():
+            _render_worker = threading.Thread(target=_render_worker_loop,
+                                              name="render-worker", daemon=True)
+            _render_worker.start()
+
+
+def _submit_render(kind: str, payload, timeout: float = 120.0):
+    """向渲染 worker 提交量高/截图任务并同步等待结果；失败抛异常。"""
+    _ensure_render_worker()
+    result_queue = queue.Queue()
+    _render_queue.put((kind, payload, result_queue))
+    status, result = result_queue.get(timeout=timeout)
+    if status == "err":
+        raise result
+    return result
+
+
+def _stop_render_worker() -> None:
+    """停止渲染 worker（进程退出清理；幂等）。"""
+    global _render_worker
+    with _render_worker_lock:
+        if _render_worker is not None and _render_worker.is_alive():
+            _render_queue.put(None)     # 停止哨兵
+            _render_worker.join(timeout=5.0)
+        _render_worker = None
+
+
+atexit.register(_stop_render_worker)
+
+
+def warmup_browser() -> None:
+    """预热渲染 worker：后台启动浏览器，首次渲染免冷启动 ~7s（浏览器在 worker 线程内创建，线程安全）。"""
+    if not _PLAYWRIGHT_OK:
+        return
+    _ensure_render_worker()
+
+
+def _measure_html_height(html: str) -> Optional[int]:
+    """playwright 测量 ``#render-root`` 渲染高度（CSS px）；失败/不可用返回 None。
+
+    经渲染 worker 线程执行（复用浏览器）；playwright 不可用或启动失败时
+    由调用方回退估算行高（等价旧版 ``_render_cli_pages`` 的行为）。
+    """
+    if not _PLAYWRIGHT_OK:
+        return None
+    try:
+        return _submit_render("measure", html)
+    except Exception as exc:  # noqa: BLE001  — 量高失败回退估算（渲染主流程仍可走）
+        logger.warning("playwright 量高失败（回退估算行高分页）: %s: %s",
+                       type(exc).__name__, exc)
+        return None
+
+
+def _render_pages_playwright(pages_html: list[str], out_dir: Path, *, slug: str) -> list[Path]:
+    """playwright → Edge channel：逐页元素级截图（经渲染 worker 线程复用浏览器）。"""
+    return _submit_render("render", (pages_html, out_dir, slug))
+
+
+def _render_pages_cli(
+    pages_html: list[str],
+    out_dir: Path,
+    *,
+    slug: str,
+    est_heights: Optional[list[int]] = None,
+) -> list[Path]:
+    """兜底：Edge headless CLI 整页截图 + Pillow 裁白边。
+
+    :param est_heights: 每页估算高（CSS px，窗口高度用）；缺省用宽松默认
+        （``MAX_PAGE_HEIGHT + 800``），靠裁白边收边。
+    """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     edge = _edge_path()
     if edge is None:
         raise RuntimeError("Edge 可执行文件未找到，无法渲染（请安装 Edge 或改用 playwright 通道）")
-    n = len(setlist.tracks)
-    est_height = HEADER_HEIGHT_EST + n * ROW_HEIGHT_EST
-    chunks = _chunk_tracks(setlist.tracks, est_height)
     paths: list[Path] = []
-    slug = _title_slug(setlist.title)
     with tempfile.TemporaryDirectory(prefix="s4_render_") as td:
-        for i, chunk in enumerate(chunks, 1):
-            html = build_html(setlist, tracks=chunk)
+        for i, html in enumerate(pages_html, 1):
             html_file = os.path.join(td, f"page{i}.html")
             with open(html_file, "w", encoding="utf-8") as f:
                 f.write(html)
             png = out_dir / f"{slug}_{i:02d}.png"
-            height = HEADER_HEIGHT_EST + len(chunk) * ROW_HEIGHT_EST
+            if est_heights and i - 1 < len(est_heights):
+                height = est_heights[i - 1]
+            else:
+                height = MAX_PAGE_HEIGHT + 800          # 宽松默认（无估算时用）
             cmd = [
                 edge,
                 "--headless=new",
@@ -444,8 +592,96 @@ def _render_cli_pages(setlist: Setlist, out_dir: Path) -> list[Path]:
     return paths
 
 
+def render_html_pages(
+    pages_html: list[str],
+    out_dir: Path,
+    *,
+    slug: str = "page",
+    est_heights: Optional[list[int]] = None,
+) -> list[Path]:
+    """**S10 共享渲染管线**：已预分页的 HTML 字符串列表 → PNG（playwright 首选 / CLI 兜底）。
+
+    截图核心（逐页截图 + 裁白边）唯一实现处；``render_setlist`` / ``render_list``
+    只负责「分页 → 组装每页 HTML」，再调用本函数出图。
+
+    :param pages_html: 每页**自包含** HTML（须含 ``id="render-root"`` 容器，元素级截图目标）
+    :param out_dir: 输出目录（自动创建）
+    :param slug: PNG 文件名前缀（``{slug}_{01..NN}.png``）
+    :param est_heights: 每页估算高（CSS px，仅 Edge CLI 兜底的窗口高度用）；
+        None 时 CLI 兜底用宽松默认高度
+    :return: 生成的 PNG 路径列表（升序，每张对应一页）
+    :raises RuntimeError: 所有渲染引擎都不可用时（无 Edge、playwright 失败且 CLI 不可用）
+    """
+    if not pages_html:
+        return []
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    if _PLAYWRIGHT_OK:
+        try:
+            return _render_pages_playwright(pages_html, out_dir, slug=slug)
+        except Exception as exc:  # noqa: BLE001  回退兜底引擎
+            logger.warning("playwright 渲染失败，回退 Edge CLI: %s: %s", type(exc).__name__, exc)
+    return _render_pages_cli(pages_html, out_dir, slug=slug, est_heights=est_heights)
+
+
 # ---------------------------------------------------------------------------
-# 入口（契约签名：render_setlist(setlist, *, out_dir=None) -> list[Path]）
+# 分页 → HTML（render_setlist / render_list 各自组装，统一交 render_html_pages）
+# ---------------------------------------------------------------------------
+def _estimate_height(n_rows: int) -> int:
+    """估算行列表页高（CLI 兜底分页 + 窗口高度用；列表与 setlist 共用）。"""
+    return HEADER_HEIGHT_EST + n_rows * ROW_HEIGHT_EST
+
+
+def _chunk_rows(
+    rows: list,
+    measured_height: int,
+    *,
+    max_height: int = MAX_PAGE_HEIGHT,
+) -> list[list]:
+    """通用行分页（列表类用；与 ``_chunk_tracks`` 同逻辑，仅语义改名）。"""
+    return _chunk_tracks(rows, measured_height, max_height=max_height)
+
+
+def _build_setlist_pages(setlist: Setlist) -> tuple[list[str], list[int]]:
+    """Setlist → (每页 HTML, 每页估算高)：量高（或估算）→ ``_chunk_tracks`` → ``build_html``。"""
+    measured = _measure_html_height(build_html(setlist))
+    if measured is None:
+        measured = _estimate_height(len(setlist.tracks))
+    chunks = _chunk_tracks(setlist.tracks, measured)
+    pages = [build_html(setlist, tracks=chunk) for chunk in chunks]
+    heights = [_estimate_height(len(chunk)) for chunk in chunks]
+    return pages, heights
+
+
+def _build_list_pages(
+    title: str,
+    rows: list[tuple[str, str]],
+    *,
+    hint: str,
+    measured_height: Optional[int] = None,
+) -> tuple[list[str], list[int]]:
+    """列表行 → (每页 HTML, 每页估算高)：量高（或估算）→ ``_chunk_rows`` → ``build_list_html``。
+
+    :param measured_height: 整表测量高（CSS px）；None 时优先 playwright 量高
+        （与 ``_build_setlist_pages`` 一致）。**不要只用估算行高**：列表主文本是长事件名，
+        flex 容器内会换行成 2–3 行，实际行高约为 ``ROW_HEIGHT_EST`` 的 1.4x——估算分页
+        会严重低估页高，产出超高 PNG（2x 缩放后上万 px、数 MB），截图与 base64 上传都慢
+        （2026-08-27 S10 live 反馈「列表图片特别慢」修复）；量高失败（playwright 不可用）才回退估算。
+    """
+    if measured_height is None:
+        measured_height = _measure_html_height(build_list_html(title, rows, hint=hint))
+    if measured_height is None:
+        measured_height = _estimate_height(len(rows))
+    chunks = _chunk_rows(rows, measured_height)
+    pages = [build_list_html(title, chunk, hint=hint) for chunk in chunks]
+    heights = [_estimate_height(len(chunk)) for chunk in chunks]
+    return pages, heights
+
+
+# ---------------------------------------------------------------------------
+# 入口（契约签名：render_setlist(setlist, *, out_dir=None) -> list[Path]；
+#            render_list(title, rows, *, out_dir=None, hint="回复序号") -> list[Path]）
 # ---------------------------------------------------------------------------
 def render_setlist(
     setlist: Setlist, *, out_dir: Optional[Union[str, Path]] = None
@@ -460,15 +696,66 @@ def render_setlist(
     """
     if out_dir is None:
         out_dir = Path("data") / "songbot_img" / datetime.now().strftime("%Y%m%d_%H%M%S")
-    out_dir = Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    pages, heights = _build_setlist_pages(setlist)
+    slug = _title_slug(setlist.title)
+    return render_html_pages(pages, out_dir, slug=slug, est_heights=heights)
 
-    if _PLAYWRIGHT_OK:
-        try:
-            return _render_playwright_pages(setlist, out_dir)
-        except Exception as exc:  # noqa: BLE001  回退兜底引擎
-            logger.warning("playwright 渲染失败，回退 Edge CLI: %s: %s", type(exc).__name__, exc)
-    return _render_cli_pages(setlist, out_dir)
+
+def _content_hash(texts: list[str], length: int = 6) -> str:
+    """内容短哈希（render_list 文件名防同标题覆盖：标题相同但行不同 → 不同文件名）。"""
+    return hashlib.md5("".join(texts).encode("utf-8")).hexdigest()[:length]
+
+
+def build_list_html(
+    title: str, rows: list[tuple[str, str]], *, hint: str = "回复序号"
+) -> str:
+    """组装列表类自包含 HTML（S10）：标题 + 序号行「主文本 + 副文本」+ footer 提示。
+
+    :param title: 列表标题（如「2026年7月 的 LIVE（共 2 场）」）
+    :param rows: [(主文本, 副文本)]，序号自动 1 起；副文本可为 ""（日期/品牌等弱化色）
+    :param hint: footer 提示文本（默认「回复序号」，S10 拍板统一）
+    """
+    body = []
+    for i, (main, sub) in enumerate(rows, 1):
+        sub_html = f'<span class="sub">{_esc(sub)}</span>' if sub else ""
+        body.append(
+            f'<div class="list-row"><span class="idx">{i}.</span>'
+            f'<span class="main">{_esc(main)}</span>{sub_html}</div>'
+        )
+    return (
+        "<!doctype html><html lang=\"ja\"><head><meta charset=\"utf-8\">"
+        f"<style>{_LIST_CSS}</style></head><body><div id=\"render-root\">"
+        f"<h1>{_esc(title)}</h1>{''.join(body)}"
+        f'<div class="list-footer">{_esc(hint)}</div></div></body></html>'
+    )
+
+
+def render_list(
+    title: str,
+    rows: list[tuple[str, str]],
+    *,
+    out_dir: Optional[Union[str, Path]] = None,
+    hint: str = "回复序号",
+    slug: Optional[str] = None,
+) -> list[Path]:
+    """渲染列表类回复 → 一张或多张 PNG（长列表分页），返回 PNG 路径列表（S10）。
+
+    :param title: 列表标题（渲染进每页图内）
+    :param rows: [(主文本, 副文本)]，序号自动 1 起；空 rows 返回 []
+    :param out_dir: 输出目录；None 时用 ``data/songbot_img/<YYYYMMDD_HHMMSS>/``
+    :param hint: 图内 footer 提示（默认「回复序号」）
+    :param slug: PNG 文件名前缀；None 用「标题 slug + 内容短哈希」（同标题不同行不互相覆盖）
+    :return: 生成的 PNG 路径列表（升序，每张对应一页）；rows 为空返回 []
+    :raises RuntimeError: 所有渲染引擎都不可用时（同 render_setlist）
+    """
+    if not rows:
+        return []
+    if out_dir is None:
+        out_dir = Path("data") / "songbot_img" / datetime.now().strftime("%Y%m%d_%H%M%S")
+    pages, heights = _build_list_pages(title, rows, hint=hint)
+    if slug is None:
+        slug = _title_slug(title) + "_" + _content_hash(pages)
+    return render_html_pages(pages, out_dir, slug=slug, est_heights=heights)
 
 
 # ---------------------------------------------------------------------------

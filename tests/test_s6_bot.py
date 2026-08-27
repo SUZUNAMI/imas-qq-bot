@@ -15,6 +15,10 @@
 - S7 启动/停止通知：启动/停止文案模板渲染（config `notify_startup`/`notify_shutdown` 可自定义、
   占位符替换、未知占位符保留）/ notify_groups 三种形态解析 / 逐群发送与异常容错 /
   停止文件监听与清理（_wait_for_stop / _remove_stop_file）。
+- S10（2026-08-27）：**@only 门控**（未 @bot 一律忽略，含二次确认/quit/闲聊；二次确认
+  用例全部改 at_bot=True）+ **列表类回复图片化**（候选/子列表/时间筛选/歌曲出现/bindings
+  六类列表走 mock `list_renderer` 发图，`bot.list_render_calls` 观测 title/rows/hint；
+  渲染/发送失败回退纯文本；`_event_list_rows` 全量进图不截断）。
 
 注：临时文件一律放工作区内的 `.tmp_test/`（沙箱禁止写系统 %TEMP%，S4 同坑）。
 
@@ -125,9 +129,15 @@ def _inc(at_bot: bool, text: str, role: str = "owner") -> Incoming:
     return Incoming(group_id=GROUP_ID, user_id=USER_ID, at_bot=at_bot, text=text, role=role)
 
 
-def _make_bot(*, fail_send=False, raise_send=False, raise_render=False) -> tuple[SongBot, list]:
-    """构造离线 SongBot：fixture 索引 + mock 抓取/渲染/发送。返回 (bot, sends)。"""
+def _make_bot(*, fail_send=False, raise_send=False, raise_render=False,
+              raise_list_render=False) -> tuple[SongBot, list]:
+    """构造离线 SongBot：fixture 索引 + mock 抓取/渲染/列表渲染/发送。返回 (bot, sends)。
+
+    S10：注入 mock ``list_renderer``（返回 ``fake_list.png``，不碰真实 Edge），
+    每次列表渲染调用记入 ``bot.list_render_calls``（(title, rows, hint)，测试观测）。
+    """
     sends: list[tuple] = []
+    list_renders: list[tuple] = []
 
     def sender(group_id: str, text: str, image_paths) -> bool:
         sends.append((str(group_id), text, [str(p) for p in (image_paths or [])]))
@@ -140,13 +150,21 @@ def _make_bot(*, fail_send=False, raise_send=False, raise_render=False) -> tuple
             raise RuntimeError("render boom")
         return [Path("fake_setlist.png")]
 
+    def list_renderer(title, rows, *, out_dir=None, hint="回复序号"):
+        list_renders.append((title, list(rows), hint))
+        if raise_list_render:
+            raise RuntimeError("list render boom")
+        return [Path("fake_list.png")]
+
     bot = SongBot(
         events=_load_events(),
         setlist_client=_mock_transport_client(),
         renderer=renderer,
+        list_renderer=list_renderer,
         sender=sender,
         bindings=BindingStore(path=os.path.join(_ws_tmp("bind_"), "b.json")),  # 隔离真实 data/ 绑定文件
     )
+    bot.list_render_calls = list_renders   # S10 测试观测
     return bot, sends
 
 
@@ -190,22 +208,30 @@ def _song_bot(*, with_index: bool = True) -> tuple[SongBot, list]:
     显式传 ``config=BotConfig()``（空缓存路径）：不继承 config.yaml 的真实
     index_cache / song_index_cache / bindings_file，防止 update live 等流程
     把迷你索引写进真实 ``data/`` 缓存（S9 ``_update_bot`` 同款隔离）。
+    S10：注入 mock ``list_renderer``（``bot.list_render_calls`` 观测，同 ``_make_bot``）。
     """
     sends: list[tuple] = []
+    list_renders: list[tuple] = []
 
     def sender(group_id: str, text: str, image_paths) -> bool:
         sends.append((str(group_id), text, [str(p) for p in (image_paths or [])]))
         return True
+
+    def list_renderer(title, rows, *, out_dir=None, hint="回复序号"):
+        list_renders.append((title, list(rows), hint))
+        return [Path("fake_list.png")]
 
     bot = SongBot(
         config=BotConfig(),
         events=_load_events(),
         setlist_client=_mock_transport_client(),
         renderer=lambda sl, **kw: [Path("fake_setlist.png")],
+        list_renderer=list_renderer,
         sender=sender,
         bindings=BindingStore(path=os.path.join(_ws_tmp("bind_"), "b.json")),
         song_index=_mini_song_index() if with_index else None,
     )
+    bot.list_render_calls = list_renders   # S10 测试观测
     return bot, sends
 
 
@@ -260,12 +286,17 @@ class TestFormat(unittest.TestCase):
 
 class TestFirstStage(unittest.TestCase):
     def test_name_unique_multiday_sublist_and_session(self):
+        """S10.3：多日事件 -> 子列表**图片**（render_list）+ 会话 CTX_EVENT。"""
         bot, sends = _make_bot()
         bot.handle(_inc(True, "live IWSF2026"))
         self.assertEqual(len(sends), 1)
-        text = sends[0][1]
-        self.assertIn("IDOL WORLD SUPER FESTIVAL 2026", text)
-        self.assertIn("DAY1", text)
+        self.assertEqual(sends[0][1], f"[CQ:at,qq={USER_ID}]")   # 只发图（带 @ 归属）
+        self.assertEqual(len(sends[0][2]), 1)
+        title, rows, hint = bot.list_render_calls[0]
+        self.assertIn("IDOL WORLD SUPER FESTIVAL 2026", title)
+        self.assertTrue(any("第一公演" in m for m, _ in rows))    # 子公演标题进图
+        self.assertTrue(any("2026/07/24" in s for _, s in rows))  # 日期为副文本
+        self.assertEqual(hint, "回复序号")                        # S10 拍板统一 footer
         ctx = bot.session.get(GROUP_ID, USER_ID)
         self.assertIsNotNone(ctx)
         self.assertEqual(ctx["kind"], CTX_EVENT)
@@ -275,7 +306,7 @@ class TestFirstStage(unittest.TestCase):
         bot, sends = _make_bot()
         bot.handle(_inc(True, "live 13thLIVE"))              # 13thLIVE 子公演名是 DAY1/DAY2
         sends.clear()
-        bot.handle(_inc(False, "DAY1"))
+        bot.handle(_inc(True, "DAY1"))                       # S10.2：二次确认也要求 @bot
         # 一次 sender 调用 = @归属文本 + 图片路径（标题/日期/出演/曲目都在 PNG 内，2026-08-27 live 反馈去文字）
         self.assertEqual(len(sends), 1)
         text, images = sends[0][1], sends[0][2]
@@ -294,11 +325,13 @@ class TestFirstStage(unittest.TestCase):
         self.assertIsNone(bot.session.get(GROUP_ID, USER_ID))
 
     def test_moiw_alias_flow(self):
-        """MOIW 别名：@bot live MOIW 2025 -> 唯一多日事件 -> 子列表 + 会话。"""
+        """MOIW 别名：@bot live MOIW 2025 -> 唯一多日事件 -> 子列表图 + 会话。"""
         bot, sends = _make_bot()
         bot.handle(_inc(True, "live MOIW 2025"))
         self.assertEqual(len(sends), 1)
-        self.assertIn("M@STERS OF IDOL WORLD 2025", sends[0][1])
+        self.assertEqual(sends[0][1], f"[CQ:at,qq={USER_ID}]")
+        title, rows, hint = bot.list_render_calls[0]
+        self.assertIn("M@STERS OF IDOL WORLD 2025", title)
         ctx = bot.session.get(GROUP_ID, USER_ID)
         self.assertEqual(ctx["kind"], CTX_EVENT)
         self.assertIn("M@STERS OF IDOL WORLD 2025", ctx["event"].title)
@@ -307,7 +340,10 @@ class TestFirstStage(unittest.TestCase):
         bot, sends = _make_bot()
         bot.handle(_inc(True, "live シャニ"))
         self.assertEqual(len(sends), 1)
-        self.assertIn("找到多个匹配", sends[0][1])
+        self.assertEqual(sends[0][1], f"[CQ:at,qq={USER_ID}]")
+        title, rows, hint = bot.list_render_calls[0]
+        self.assertIn("找到多个匹配", title)
+        self.assertGreaterEqual(len(rows), 2)               # 全部候选进图（不截断）
         ctx = bot.session.get(GROUP_ID, USER_ID)
         self.assertEqual(ctx["kind"], CTX_CANDIDATES)
         self.assertGreaterEqual(len(ctx["events"]), 2)
@@ -323,10 +359,13 @@ class TestFirstStage(unittest.TestCase):
         bot, sends = _make_bot()
         bot.handle(_inc(True, "live 2026年7月"))
         self.assertEqual(len(sends), 1)
-        text = sends[0][1]
-        self.assertIn("2026年7月 的 LIVE", text)
-        self.assertIn("IDOL WORLD SUPER FESTIVAL 2026", text)
-        self.assertIn("DERE of the DEAD", text)
+        self.assertEqual(sends[0][1], f"[CQ:at,qq={USER_ID}]")
+        title, rows, hint = bot.list_render_calls[0]
+        self.assertIn("2026年7月 的 LIVE", title)
+        mains = [m for m, _ in rows]
+        self.assertTrue(any("IDOL WORLD SUPER FESTIVAL" in m for m in mains))
+        self.assertTrue(any("DERE of the DEAD" in m for m in mains))
+        self.assertEqual(hint, "回复序号")
         ctx = bot.session.get(GROUP_ID, USER_ID)
         self.assertEqual(ctx["kind"], CTX_CANDIDATES)
 
@@ -342,9 +381,11 @@ class TestSecondStage(unittest.TestCase):
         bot, sends = _make_bot()
         bot.handle(_inc(True, "live 2026年7月"))
         sends.clear()
-        bot.handle(_inc(False, "1"))                       # 首候选 = IWSF（多日）
+        bot.handle(_inc(True, "1"))                       # 首候选 = IWSF（多日）-> 子列表图
         self.assertEqual(len(sends), 1)
-        self.assertIn("IDOL WORLD SUPER FESTIVAL 2026", sends[0][1])
+        self.assertEqual(sends[0][1], f"[CQ:at,qq={USER_ID}]")
+        title, rows, hint = bot.list_render_calls[-1]
+        self.assertIn("IDOL WORLD SUPER FESTIVAL 2026", title)
         ctx = bot.session.get(GROUP_ID, USER_ID)
         self.assertEqual(ctx["kind"], CTX_EVENT)
 
@@ -352,7 +393,7 @@ class TestSecondStage(unittest.TestCase):
         bot, sends = _make_bot()
         bot.handle(_inc(True, "live 2026年7月"))
         sends.clear()
-        bot.handle(_inc(False, "99"))
+        bot.handle(_inc(True, "99"))
         self.assertEqual(len(sends), 1)
         self.assertIn("序号超出范围", sends[0][1])
 
@@ -360,9 +401,11 @@ class TestSecondStage(unittest.TestCase):
         bot, sends = _make_bot()
         bot.handle(_inc(True, "live 2026年7月"))               # 候选 = IWSF + DERE
         sends.clear()
-        bot.handle(_inc(False, "IDOL WORLD SUPER FESTIVAL 2026"))
+        bot.handle(_inc(True, "IDOL WORLD SUPER FESTIVAL 2026"))
         self.assertEqual(len(sends), 1)
-        self.assertIn("回复序号", sends[0][1])              # 唯一命中 -> 子列表
+        self.assertEqual(sends[0][1], f"[CQ:at,qq={USER_ID}]")  # 唯一命中 -> 子列表图
+        title, rows, hint = bot.list_render_calls[-1]
+        self.assertIn("IDOL WORLD SUPER FESTIVAL 2026", title)
         ctx = bot.session.get(GROUP_ID, USER_ID)
         self.assertEqual(ctx["kind"], CTX_EVENT)
 
@@ -382,7 +425,9 @@ class TestSecondStage(unittest.TestCase):
         sends.clear()
         bot.handle(_inc(True, "live 13thLIVE"))              # 旧会话内解析失败 -> 新查询
         self.assertEqual(len(sends), 1)
-        self.assertIn("13thLIVE", sends[0][1])
+        self.assertEqual(sends[0][1], f"[CQ:at,qq={USER_ID}]")
+        title, rows, hint = bot.list_render_calls[-1]         # 13thLIVE 多日 -> 子列表图
+        self.assertIn("13thLIVE", title)
         ctx = bot.session.get(GROUP_ID, USER_ID)
         self.assertIn("13thLIVE", ctx["event"].title)
 
@@ -391,14 +436,137 @@ class TestSecondStage(unittest.TestCase):
         bot.handle(_inc(False, "随便说点什么"))
         self.assertEqual(len(sends), 0)
 
-    def test_unresolved_reply_keeps_session(self):
+    def test_unresolved_at_bot_reply_falls_to_first_stage(self):
+        """@bot + 会话内解析失败 -> 回落第一段（用法提示），会话保留。"""
         bot, sends = _make_bot()
         bot.handle(_inc(True, "live IWSF2026"))
         sends.clear()
-        bot.handle(_inc(False, "完全看不懂"))                # match_sub 失败
+        bot.handle(_inc(True, "完全看不懂"))                # match_sub 失败
         self.assertEqual(len(sends), 1)
-        self.assertIn("没看懂", sends[0][1])
+        self.assertIn("命令前缀", sends[0][1])               # 回落第一段 -> 用法提示
         self.assertIsNotNone(bot.session.get(GROUP_ID, USER_ID))  # 会话保留
+
+    def test_unresolved_no_at_ignored_keeps_session(self):
+        """无 @ + 有会话：一律忽略（S10 @only 门控，不再回「没看懂」提示）。"""
+        bot, sends = _make_bot()
+        bot.handle(_inc(True, "live IWSF2026"))
+        sends.clear()
+        bot.handle(_inc(False, "完全看不懂"))
+        self.assertEqual(len(sends), 0)
+        self.assertIsNotNone(bot.session.get(GROUP_ID, USER_ID))  # 会话保留
+
+
+class TestAtOnlyGating(unittest.TestCase):
+    """S10.2 @only 门控：未 @bot 的消息**一律忽略**（含会话二次确认/quit/闲聊）。"""
+
+    def test_no_at_chat_ignored(self):
+        bot, sends = _make_bot()
+        bot.handle(_inc(False, "随便说点什么"))
+        self.assertEqual(len(sends), 0)
+        self.assertIsNone(bot.session.get(GROUP_ID, USER_ID))
+
+    def test_no_at_confirm_ignored_keeps_session(self):
+        """有候选会话但未 @：序号确认被忽略（不回复、不动作），会话保留。"""
+        bot, sends = _make_bot()
+        bot.handle(_inc(True, "live 2026年7月"))           # 候选会话
+        sends.clear()
+        bot.handle(_inc(False, "1"))
+        self.assertEqual(len(sends), 0)
+        ctx = bot.session.get(GROUP_ID, USER_ID)
+        self.assertIsNotNone(ctx)
+        self.assertEqual(ctx["kind"], CTX_CANDIDATES)
+
+    def test_no_at_day1_ignored_keeps_session(self):
+        """多日事件会话：无 @ 的 DAY1 被忽略，会话保留（二次确认也要求 @bot）。"""
+        bot, sends = _make_bot()
+        bot.handle(_inc(True, "live IWSF2026"))           # 多日事件会话
+        sends.clear()
+        bot.handle(_inc(False, "DAY1"))
+        self.assertEqual(len(sends), 0)
+        self.assertEqual(bot.session.get(GROUP_ID, USER_ID)["kind"], CTX_EVENT)
+
+    def test_no_at_song_confirm_ignored_keeps_session(self):
+        """歌曲 LIVE 会话：无 @ 的序号被忽略，会话保留。"""
+        bot, sends = _song_bot()
+        with _patch_song_events():
+            bot.handle(_inc(True, "song Dance in the Light"))
+        self.assertEqual(bot.session.get(GROUP_ID, USER_ID)["kind"], CTX_SONG_LIVES)
+        sends.clear()
+        bot.handle(_inc(False, "1"))
+        self.assertEqual(len(sends), 0)
+        self.assertEqual(bot.session.get(GROUP_ID, USER_ID)["kind"], CTX_SONG_LIVES)
+
+    def test_no_at_quit_ignored_keeps_session(self):
+        bot, sends = _make_bot()
+        bot.handle(_inc(True, "live IWSF2026"))
+        sends.clear()
+        bot.handle(_inc(False, "quit"))
+        self.assertEqual(len(sends), 0)
+        self.assertIsNotNone(bot.session.get(GROUP_ID, USER_ID))
+
+    def test_at_confirm_still_works(self):
+        """@bot 二次确认正常（两段式不被 @only 破坏）：候选序号 -> 子列表图。"""
+        bot, sends = _make_bot()
+        bot.handle(_inc(True, "live 2026年7月"))
+        sends.clear()
+        bot.handle(_inc(True, "1"))
+        self.assertEqual(len(sends), 1)
+        self.assertEqual(sends[0][1], f"[CQ:at,qq={USER_ID}]")
+        self.assertEqual(bot.session.get(GROUP_ID, USER_ID)["kind"], CTX_EVENT)
+
+
+class TestListImageS10(unittest.TestCase):
+    """S10.3 列表类回复图片化：render_list 发图 + 失败回退纯文本（format_* 保留）。"""
+
+    def test_list_render_failure_falls_back_to_text(self):
+        bot, sends = _make_bot(raise_list_render=True)
+        bot.handle(_inc(True, "live 2026年7月"))
+        self.assertEqual(len(sends), 1)
+        self.assertIn("2026年7月 的 LIVE", sends[0][1])   # 纯文本兜底（format_event_list 保留）
+        self.assertIn("IDOL WORLD SUPER FESTIVAL", sends[0][1])
+        self.assertIn("回复序号或 LIVE 名", sends[0][1])
+
+    @mock.patch.object(SongBot, "_confirm_group_image", return_value=False)
+    def test_list_image_send_failure_falls_back_to_text(self, mock_confirm):
+        bot, sends = _make_bot(fail_send=True)
+        bot.handle(_inc(True, "live 2026年7月"))
+        self.assertEqual(len(sends), 2)                  # 图片发送失败 + 文本兜底
+        self.assertEqual(sends[0][2], ["fake_list.png"])
+        self.assertIn("2026年7月 的 LIVE", sends[1][1])
+        mock_confirm.assert_called_once()
+
+    @mock.patch.object(SongBot, "_confirm_group_image", return_value=True)
+    def test_list_image_failure_but_delivered_skips_text(self, mock_confirm):
+        """NapCat 假失败（超时但实际送达）-> 确认已送达 -> 跳过列表文本兜底。"""
+        bot, sends = _make_bot(fail_send=True)
+        bot.handle(_inc(True, "live 2026年7月"))
+        self.assertEqual(len(sends), 1)                  # 只发过图片那一条
+        self.assertTrue(sends[0][2])
+        mock_confirm.assert_called_once()
+
+    def test_list_image_send_exception_does_not_crash(self):
+        bot, sends = _make_bot(raise_send=True)
+        bot.handle(_inc(True, "live 2026年7月"))
+        self.assertGreaterEqual(len(sends), 1)           # 不崩进程
+        self.assertIsNotNone(bot.session.get(GROUP_ID, USER_ID))  # 候选会话保留
+
+    def test_event_rows_no_truncation(self):
+        """时间筛选：全部事件进图（图片可分页），与会话确认序号一致（不按 reply_limit 截断）。"""
+        from songbot.bot import _event_list_rows
+        events = [Event(title=f"LIVE {i}", year="2026", date=f"2026/{(i - 1) % 9 + 1:02d}/01")
+                  for i in range(1, 16)]
+        rows = _event_list_rows(events)
+        self.assertEqual(len(rows), 15)                  # 15 条全进图（旧文本只显示前 10）
+        self.assertEqual(rows[0], ("LIVE 1", "2026/01/01"))
+        self.assertEqual(rows[-1][0], "LIVE 15")
+
+    def test_event_rows_multiday_sub(self):
+        from songbot.bot import _event_list_rows
+        ev = Event(title="EV", year="2026",
+                   sub_events=[SubEvent("DAY1", "…", "http://x/1.html", "2026/07/24(金)"),
+                               SubEvent("DAY2", "…", "http://x/2.html", "2026/07/25(土)")])
+        rows = _event_list_rows([ev])
+        self.assertEqual(rows, [("EV", "多日：DAY1(2026/07/24(金))、DAY2(2026/07/25(土))")])
 
 
 class TestFallback(unittest.TestCase):
@@ -406,26 +574,33 @@ class TestFallback(unittest.TestCase):
     def test_image_send_failure_falls_back_to_text(self, mock_confirm):
         bot, sends = _make_bot(fail_send=True)
         bot.handle(_inc(True, "live 13thLIVE"))
+        # 第一发：子列表**图片**发送返回 False 且确认未送达 -> 回退纯文本子列表
+        self.assertEqual(len(sends), 2)
+        self.assertEqual(sends[0][2], ["fake_list.png"])
+        self.assertIn("13thLIVE", sends[1][1])
+        self.assertIn("DAY1 全力援走", sends[1][1])
         sends.clear()
-        bot.handle(_inc(False, "DAY1"))
-        # 第一发：图片发送返回 False 且确认未送达 -> 第二发回退纯文本歌单
+        bot.handle(_inc(True, "DAY1"))
+        # 第二发：歌曲列表图片发送失败 -> 回退纯文本歌单
         self.assertEqual(len(sends), 2)
         self.assertIn("图片发送失败", sends[1][1])
         self.assertIn("Dance in the Light", sends[1][1])   # fixture 歌单曲目
-        mock_confirm.assert_called_once()
+        self.assertEqual(mock_confirm.call_count, 2)       # 两次图片发送各确认一次
 
     @mock.patch.object(SongBot, "_confirm_group_image", return_value=True)
     def test_image_failure_but_delivered_skips_text(self, mock_confirm):
         """S7 bug 修复：NapCat 假失败（超时但实际送达）-> 确认已送达 -> 不发文字版兜底。"""
         bot, sends = _make_bot(fail_send=True)
         bot.handle(_inc(True, "live 13thLIVE"))
+        self.assertEqual(len(sends), 1)                    # 子列表图：确认已送达 -> 无兜底
+        self.assertTrue(sends[0][2])
         sends.clear()
-        bot.handle(_inc(False, "DAY1"))
+        bot.handle(_inc(True, "DAY1"))
         # 只发过图片那一条（发送返回 False 但确认已送达，跳过文字版）
         self.assertEqual(len(sends), 1)
         self.assertNotIn("失败", sends[0][1])
         self.assertTrue(sends[0][2])                    # 发送的是图片路径
-        mock_confirm.assert_called_once()
+        self.assertEqual(mock_confirm.call_count, 2)       # 两次图片发送各确认一次
 
     def test_render_failure_falls_back_to_text(self):
         bot, sends = _make_bot(raise_render=True)
@@ -449,7 +624,7 @@ class TestFallback(unittest.TestCase):
         bot, sends = _make_bot(raise_send=True)
         bot.handle(_inc(True, "live 13thLIVE"))
         sends.clear()
-        bot.handle(_inc(False, "DAY1"))
+        bot.handle(_inc(True, "DAY1"))
         # 发送抛异常：记录日志、进程不崩；无会话残留
         self.assertGreaterEqual(len(sends), 1)
         self.assertIsNone(bot.session.get(GROUP_ID, USER_ID))
@@ -618,10 +793,12 @@ class TestS9BindingCommands(unittest.TestCase):
         self.assertEqual(len(sends), 1)
         self.assertIn("已绑定：13th → THE IDOLM@STER MILLION LIVE! 13thLIVE", sends[0][1])
         sends.clear()
-        bot.handle(_inc(True, "live 13th"))              # 绑定命中 -> 多日子列表
+        bot.handle(_inc(True, "live 13th"))              # 绑定命中 -> 多日子列表（图）
         self.assertEqual(len(sends), 1)
-        self.assertIn("13thLIVE", sends[0][1])
-        self.assertIn("DAY1", sends[0][1])
+        self.assertEqual(sends[0][1], f"[CQ:at,qq={USER_ID}]")
+        title, rows, hint = bot.list_render_calls[-1]
+        self.assertIn("13thLIVE", title)
+        self.assertTrue(any("DAY1" in (m + s) for m, s in rows))
         ctx = bot.session.get(GROUP_ID, USER_ID)
         self.assertEqual(ctx["kind"], CTX_EVENT)
 
@@ -671,9 +848,12 @@ class TestS9BindingCommands(unittest.TestCase):
         bot.handle(_inc(True, "binding zzz CINDERELLA GIRLS MUSICAL DERE of the DEAD"))
         sends.clear()
         bot.handle(_inc(True, "bindings"))
-        self.assertIn("全部绑定（2 条）", sends[0][1])
-        self.assertIn("aaa →", sends[0][1])
-        self.assertIn("zzz →", sends[0][1])
+        self.assertEqual(len(sends), 1)
+        self.assertEqual(sends[0][1], f"[CQ:at,qq={USER_ID}]")   # S10.3：bindings 列表走图
+        title, rows, hint = bot.list_render_calls[-1]
+        self.assertIn("全部绑定（2 条）", title)
+        self.assertEqual([m for m, _ in rows], ["aaa", "zzz"])   # 主文本=略缩，副文本=事件名
+        self.assertIn("13thLIVE", rows[0][1])
 
     def test_stale_binding_ignored(self):
         bot, sends = _make_bot()
@@ -754,7 +934,9 @@ class TestS9BindingCommands(unittest.TestCase):
         """live / song 全员可用（member 也能查询，不触发权限提示）。"""
         bot, sends = _make_bot()
         bot.handle(_inc(True, "live IWSF2026", role="member"))
-        self.assertIn("IDOL WORLD SUPER FESTIVAL 2026", sends[0][1])
+        self.assertEqual(len(sends), 1)
+        self.assertEqual(sends[0][1], f"[CQ:at,qq={USER_ID}]")
+        self.assertIn("IDOL WORLD SUPER FESTIVAL 2026", bot.list_render_calls[0][0])
         self.assertNotIn("仅群主/管理员", sends[0][1])
 
 
@@ -777,15 +959,19 @@ class TestS8SongFlow(unittest.TestCase):
         self.assertIn("回复序号或歌名", cand)
 
     def test_song_unique_lists_lives(self):
-        """@bot song 唯一命中 -> 列出该歌出现过的 LIVE（2 场）+ 会话 CTX_SONG_LIVES。"""
+        """@bot song 唯一命中 -> 列出该歌出现过的 LIVE（2 场，**图片**）+ 会话 CTX_SONG_LIVES。"""
         bot, sends = _song_bot()
         with _patch_song_events():
             bot.handle(_inc(True, "song Dance in the Light"))
         self.assertEqual(len(sends), 1)
-        text = sends[0][1]
-        self.assertIn("「Dance in the Light」出现在 2 场 LIVE", text)
-        self.assertIn("IDOL WORLD SUPER FESTIVAL 2026", text)     # IWSF day1
-        self.assertIn("MILLION LIVE! 13thLIVE", text)             # 13th day1
+        self.assertEqual(sends[0][1], f"[CQ:at,qq={USER_ID}]")   # 只发图（带 @ 归属）
+        self.assertEqual(len(sends[0][2]), 1)
+        title, rows, hint = bot.list_render_calls[0]
+        self.assertIn("「Dance in the Light」出现在 2 场 LIVE", title)
+        mains = [m for m, _ in rows]
+        self.assertTrue(any("IDOL WORLD SUPER FESTIVAL" in m for m in mains))  # IWSF day1
+        self.assertTrue(any("MILLION LIVE! 13thLIVE" in m for m in mains))     # 13th day1
+        self.assertEqual(hint, "回复序号")
         ctx = bot.session.get(GROUP_ID, USER_ID)
         self.assertIsNotNone(ctx)
         self.assertEqual(ctx["kind"], CTX_SONG_LIVES)
@@ -797,7 +983,7 @@ class TestS8SongFlow(unittest.TestCase):
         with _patch_song_events():
             bot.handle(_inc(True, "song Dance in the Light"))
         sends.clear()
-        bot.handle(_inc(False, "1"))                            # 首个 LIVE = IWSF day1
+        bot.handle(_inc(True, "1"))                            # 首个 LIVE = IWSF day1
         self.assertEqual(len(sends), 1)
         self.assertEqual(sends[0][1], f"[CQ:at,qq={USER_ID}]")   # 只发图（带 @ 归属）
         self.assertEqual(len(sends[0][2]), 1)
@@ -808,13 +994,13 @@ class TestS8SongFlow(unittest.TestCase):
         with _patch_song_events():
             bot.handle(_inc(True, "song Dance in the Light"))
         sends.clear()
-        bot.handle(_inc(False, "99"))
+        bot.handle(_inc(True, "99"))
         self.assertEqual(len(sends), 1)
         self.assertIn("序号超出范围（1–2）", sends[0][1])
         self.assertIsNotNone(bot.session.get(GROUP_ID, USER_ID))  # 会话保留
 
     def test_song_multi_candidate_then_pick(self):
-        """多候选 -> 候选歌列表 + 会话；回复序号选歌 -> LIVE 列表。"""
+        """多候选 -> 候选歌列表**图** + 会话；回复序号选歌 -> LIVE 列表**图**。"""
         bot, sends = _song_bot()
         # 手工注入两个同词元候选 + 覆盖 source_urls（增量刷新零抓取）
         idx = SongIndex()
@@ -830,17 +1016,20 @@ class TestS8SongFlow(unittest.TestCase):
         with _patch_song_events():
             bot.handle(_inc(True, "song brand new"))
         self.assertEqual(len(sends), 1)
-        self.assertIn("找到多首候选歌曲", sends[0][1])
-        self.assertIn("1. Brand New!!", sends[0][1])
-        self.assertIn("2. Brand New Wave!", sends[0][1])
-        self.assertEqual(sends[0][1].count("回复序号或歌名"), 1, "二次确认提示只应出现一次（回归：曾重复拼接）")
+        self.assertEqual(sends[0][1], f"[CQ:at,qq={USER_ID}]")     # 候选列表图
+        title, rows, hint = bot.list_render_calls[0]
+        self.assertIn("找到多首候选歌曲", title)
+        self.assertEqual([m for m, _ in rows], ["Brand New!!", "Brand New Wave!"])
+        self.assertEqual(hint, "回复序号")                          # 图内 footer 统一（拍板）
         ctx = bot.session.get(GROUP_ID, USER_ID)
         self.assertEqual(ctx["kind"], CTX_SONG_CANDIDATES)
         self.assertEqual(len(ctx["songs"]), 2)
         sends.clear()
-        bot.handle(_inc(False, "1"))                            # 选 Brand New!!
+        bot.handle(_inc(True, "1"))                            # 选 Brand New!! -> LIVE 列表图
         self.assertEqual(len(sends), 1)
-        self.assertIn("「Brand New!!」出现在 1 场 LIVE", sends[0][1])
+        self.assertEqual(sends[0][1], f"[CQ:at,qq={USER_ID}]")
+        title2, rows2, _ = bot.list_render_calls[1]
+        self.assertIn("「Brand New!!」出现在 1 场 LIVE", title2)
         ctx = bot.session.get(GROUP_ID, USER_ID)
         self.assertEqual(ctx["kind"], CTX_SONG_LIVES)
 
@@ -855,11 +1044,11 @@ class TestS8SongFlow(unittest.TestCase):
         with _patch_song_events():
             bot.handle(_inc(True, "song brand new"))
         sends.clear()
-        bot.handle(_inc(False, "99"))
+        bot.handle(_inc(True, "99"))
         self.assertIn("序号超出范围（1–2）", sends[0][1])
 
     def test_song_candidate_relist_single_hint(self):
-        """候选内歌名再匹配仍多义 -> 重列候选，「回复序号或歌名」只出现一次（回归：曾重复拼接）。"""
+        """候选内歌名再匹配仍多义 -> 重列候选（**图片**，footer 统一「回复序号」）。"""
         bot, sends = _song_bot()
         idx = SongIndex()
         idx.entries["brandnewwave"] = SongEntry(title="Brand New Wave!", appearances=[])
@@ -870,10 +1059,13 @@ class TestS8SongFlow(unittest.TestCase):
         with _patch_song_events():
             bot.handle(_inc(True, "song brand new"))
         sends.clear()
-        bot.handle(_inc(False, "brand new"))              # 候选内仍多义 -> 重列候选
+        bot.handle(_inc(True, "brand new"))              # 候选内仍多义 -> 重列候选
         self.assertEqual(len(sends), 1)
-        self.assertIn("还是没唯一确定", sends[0][1])
-        self.assertEqual(sends[0][1].count("回复序号或歌名"), 1)
+        self.assertEqual(sends[0][1], f"[CQ:at,qq={USER_ID}]")
+        title, rows, hint = bot.list_render_calls[-1]
+        self.assertIn("还是没唯一确定", title)
+        self.assertEqual([m for m, _ in rows], ["Brand New!!", "Brand New Wave!"])
+        self.assertEqual(hint, "回复序号")                 # 图内 footer 统一（S10 拍板）
 
     def test_song_no_hit(self):
         bot, sends = _song_bot()
@@ -905,7 +1097,8 @@ class TestS8SongFlow(unittest.TestCase):
         with mock.patch("songbot.bot.fetch_events", side_effect=FetchError("boom")):
             bot.handle(_inc(True, "song Dance in the Light"))
         self.assertEqual(len(sends), 1)
-        self.assertIn("2 场 LIVE", sends[0][1])                  # 仍用注入索引命中
+        self.assertEqual(sends[0][1], f"[CQ:at,qq={USER_ID}]")
+        self.assertIn("2 场 LIVE", bot.list_render_calls[0][0])   # 仍用注入索引命中（图标题）
 
     def test_update_live_rebuilds_song_index(self):
         """update live 钩子（_song_refresher）：用最新事件全量重建歌曲索引并回报歌曲数。"""
@@ -944,7 +1137,7 @@ class TestQuit(unittest.TestCase):
         bot.handle(_inc(True, "live IWSF2026"))                # 多日事件 -> 会话
         self.assertIsNotNone(bot.session.get(GROUP_ID, USER_ID))
         sends.clear()
-        bot.handle(_inc(False, "quit"))                        # 无 @ 取消
+        bot.handle(_inc(True, "quit"))                        # S10.2：quit 也要求 @bot
         self.assertEqual(len(sends), 1)
         self.assertEqual(sends[0][1], f"[CQ:at,qq={USER_ID}] 已取消本次查询，可重新 @bot 发起（live / song）")
         self.assertIsNone(bot.session.get(GROUP_ID, USER_ID))  # 会话已清
@@ -955,7 +1148,7 @@ class TestQuit(unittest.TestCase):
             bot.handle(_inc(True, "song Dance in the Light"))  # -> CTX_SONG_LIVES
         self.assertEqual(bot.session.get(GROUP_ID, USER_ID)["kind"], CTX_SONG_LIVES)
         sends.clear()
-        bot.handle(_inc(False, "QUIT"))                        # 大小写不敏感
+        bot.handle(_inc(True, "QUIT"))                        # 大小写不敏感
         self.assertIn("已取消本次查询", sends[0][1])
         self.assertIsNone(bot.session.get(GROUP_ID, USER_ID))
 
@@ -971,6 +1164,16 @@ class TestQuit(unittest.TestCase):
         bot.handle(_inc(False, "quit"))                        # 无会话且未 @ -> 忽略
         self.assertEqual(len(sends), 0)
 
+    def test_quit_without_at_ignored_keeps_session(self):
+        """无 @ 的 quit：S10 @only 门控下直接忽略（不再取消），会话保留。"""
+        bot, sends = _make_bot()
+        bot.handle(_inc(True, "live IWSF2026"))
+        self.assertIsNotNone(bot.session.get(GROUP_ID, USER_ID))
+        sends.clear()
+        bot.handle(_inc(False, "quit"))
+        self.assertEqual(len(sends), 0)
+        self.assertIsNotNone(bot.session.get(GROUP_ID, USER_ID))  # 会话未被清
+
     def test_replies_are_user_attributed(self):
         """所有文本回复带 @ 归属（按用户分类），不同用户会话互不串线。"""
         bot, sends = _make_bot()
@@ -983,7 +1186,7 @@ class TestQuit(unittest.TestCase):
         self.assertEqual(len(sends), 2)
         self.assertTrue(sends[1][1].startswith("[CQ:at,qq=999999]"), sends[1][1])
         # 两个用户会话互不干扰
-        bot.handle(Incoming(group_id=GROUP_ID, user_id=USER_ID, at_bot=False, text="1"))
+        bot.handle(Incoming(group_id=GROUP_ID, user_id=USER_ID, at_bot=True, text="1"))
         self.assertEqual(bot.session.get(GROUP_ID, USER_ID)["kind"], CTX_EVENT)  # 用户1 -> IWSF
         self.assertEqual(bot.session.get(GROUP_ID, "999999")["kind"], CTX_EVENT)  # 用户2 保留 13thLIVE
 

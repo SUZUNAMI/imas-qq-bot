@@ -33,6 +33,9 @@ import httpx  # noqa: E402  （vendor 已由 songbot 模块兜底）
 FIX_IWSF = os.path.join(_ROOT, "fixtures", "imas_db_iwsf_day1.html")            # 版式 A
 FIX_13TH = os.path.join(_ROOT, "fixtures", "imas_db_million_13th_day1.html")    # 版式 B
 FIX_DERE = os.path.join(_ROOT, "fixtures", "imas_db_cg_musical_dd.html")        # 版式 C（音乐剧）
+FIX_MUGEN1 = os.path.join(_ROOT, "fixtures", "imas_db_mugenbeat_day1.html")     # 版式 D（早期 idol_* 类名）
+FIX_MUGEN2 = os.path.join(_ROOT, "fixtures", "imas_db_mugenbeat_day2.html")     # 版式 D（早期）
+FIX_SETSUNA1 = os.path.join(_ROOT, "fixtures", "imas_db_setsunabeat_day1.html")  # 版式 D（早期）
 BASE = "http://imas-db.jp/song/event/"   # 与 PAGE_BASE_URL 同义，独立写死防漂移
 URL_IWSF = BASE + "idolmaster_iwsf_day1.html"
 
@@ -52,6 +55,21 @@ def _parse_13th() -> Setlist:
 
 def _parse_dere() -> Setlist:
     return parse_setlist_html(_load(FIX_DERE), url=BASE + "cinderella_cg_musical_dd.html")
+
+
+def _parse_mugen1() -> Setlist:
+    return parse_setlist_html(_load(FIX_MUGEN1),
+                              url=BASE + "shinycolors_283unitlive_mugenbeat_day1.html")
+
+
+def _parse_mugen2() -> Setlist:
+    return parse_setlist_html(_load(FIX_MUGEN2),
+                              url=BASE + "shinycolors_283unitlive_mugenbeat_day2.html")
+
+
+def _parse_setsuna1() -> Setlist:
+    return parse_setlist_html(_load(FIX_SETSUNA1),
+                              url=BASE + "shinycolors_283unitlive_setsunabeat_day1.html")
 
 
 class TestIwsfLayoutA(unittest.TestCase):
@@ -201,6 +219,86 @@ class TestDereMusicalLayoutC(unittest.TestCase):
         self.assertEqual(t.performers, ["アイドル全員"])
 
 
+class TestLegacyIdolClassLayoutD(unittest.TestCase):
+    """版式 D（S11）：2022 及更早公演，演者用 idol_* 类名 span（无 idol-name）。
+
+    出演块为 ``<div class="section"><h2>出演</h2><ul>``；单元名 span 无 title 取文本，
+    个人 span 有 ``title="角色名(CV:声优)"`` → 取角色名；颜色走 idol_class_colors。"""
+
+    def _parse_with_tables(self, name: str) -> Setlist:
+        return parse_setlist_html(_load(os.path.join(_ROOT, "fixtures", name)),
+                                  url=BASE + name.replace("imas_db_", "").replace(".html", ".html"),
+                                  idol_colors=_TABLES)
+
+    def test_title(self):
+        self.assertIn("MUGEN BEAT", _parse_mugen1().title)
+        self.assertIn("SETSUNA BEAT", _parse_setsuna1().title)
+
+    def test_date_venue(self):
+        dv = _parse_mugen1().date_venue
+        self.assertIn("2022/10/22", dv)
+        self.assertIn("武蔵野の森", dv)
+        self.assertNotIn("詳細", dv)
+
+    def test_performers_split_unit_and_members(self):
+        # 出演块：单元名 + 成员（title 去 CV → 角色名）逐个拆分，非合并串
+        p = _parse_mugen1().performers
+        self.assertEqual(len(p), 16)
+        self.assertIn("イルミネーションスターズ", p)   # 单元名（无 title，取 span 文本）
+        self.assertIn("アンティーカ", p)
+        self.assertIn("櫻木真乃", p)                    # title="櫻木真乃(CV:関根瞳)" → 角色名
+        self.assertIn("八宮めぐる", p)
+        self.assertTrue(all("CV" not in n and "(" not in n for n in p),
+                        "演者名应去 title 的 (CV:…) 部分")
+
+    def test_track_performer_unit_span(self):
+        # tracklist 演者单元格：<span class="idol_sc_unit02">アンティーカ</span>
+        t = _parse_mugen1().tracks[0]
+        self.assertEqual(t.no, 1)
+        self.assertEqual(t.title, "バベルシティ・グレイス")
+        self.assertEqual(t.performers, ["アンティーカ"])
+        self.assertEqual(t.performer_colors, ["#853998"])   # idol_class_colors 命中
+
+    def test_track_colors_via_idol_class(self):
+        sl = self._parse_with_tables("imas_db_mugenbeat_day1.html")
+        colors = {t.title: (t.performers[0], t.performer_colors[0])
+                  for t in sl.tracks if t.performers and t.performer_colors[0]}
+        self.assertEqual(colors.get("バベルシティ・グレイス"), ("アンティーカ", "#853998"))
+        self.assertEqual(colors.get("Transcending The World"), ("ストレイライト", "#af011c"))
+
+    def test_setsuna_colors(self):
+        sl = self._parse_with_tables("imas_db_setsunabeat_day1.html")
+        first = sl.tracks[0]
+        self.assertEqual(first.performers, ["アルストロメリア"])
+        self.assertEqual(first.performer_colors, ["#ff699e"])
+
+    def test_all_members_no_color(self):
+        # 「全員」无演者 span → 颜色 None（与近期版式一致）
+        sl = self._parse_with_tables("imas_db_mugenbeat_day1.html")
+        last = [t for t in sl.tracks if t.performers == ["全員"]][0]
+        self.assertEqual(last.performer_colors, [None])
+
+    def test_legacy_name_title_priority(self):
+        # title 优先：title="櫻木真乃(CV:関根瞳)" → "櫻木真乃"；无 title 的单元名 → span 文本
+        sl = self._parse_with_tables("imas_db_mugenbeat_day1.html")
+        p = dict(zip(sl.performers, sl.performer_colors))
+        self.assertEqual(p.get("櫻木真乃"), "#ffbad6")
+        self.assertEqual(p.get("八宮めぐる"), "#ffe012")
+        self.assertEqual(p.get("アンティーカ"), "#853998")
+
+    def test_no_color_class_falls_back_none(self):
+        # 类名无颜色定义 → None（不崩）；此处用表外的类验证
+        html = ("<div class='section'><h2>出演</h2><ul>"
+                "<li><span class='idol_unknown_xyz'>謎のアイドル</span></li></ul></div>"
+                "<table class='tracklist'><tbody>"
+                "<tr><td>1</td><td>曲</td><td><span class='idol_unknown_xyz'>謎</span></td></tr>"
+                "</tbody></table>")
+        sl = parse_setlist_html(html, idol_colors=_TABLES)
+        self.assertEqual(sl.performers, ["謎のアイドル"])
+        self.assertEqual(sl.performer_colors, [None])
+        self.assertEqual(sl.tracks[0].performer_colors, [None])
+
+
 class TestDefensiveParsing(unittest.TestCase):
     """坏输入不抛异常：缺表格 / 缺 tbody / 缺标题 / 缺日期行 / 缺出演块 / 坏行。"""
 
@@ -336,6 +434,11 @@ _TABLES = (
     {"16": "#b4e04b", "8": "#515558", "73": "#9678d3", "113": "#fe9d1a",
      "220": "#fed552", "248": "#e25a9b", "312": "#101010", "305": "#fcf",
      "357": "#af011c", "395": "#008e74", "431": "#7cfc00"},
+    # S11：早期版式 .idol_*{color} 文字色表（idol_class_colors，MUGEN/SETSUNA 用类）
+    {"idol_sc_unit01": "#fff68d", "idol_sc_unit02": "#853998", "idol_sc_unit05": "#af011c",
+     "idol_sc_unit07": "#008e74", "idol_sc_unit03": "#ff699e", "idol_sc_sakuya": "#006047",
+     "idol_sc_mano": "#ffbad6", "idol_sc_meguru": "#ffe012", "idol_sc_kogane": "#f84cad",
+     "idol_sc_mamimi": "#a846fb", "idol_ml_mirai": "#ea5b76", "idol_har": "#e22b30"},
 )
 
 

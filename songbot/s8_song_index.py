@@ -43,7 +43,7 @@ import time
 from pathlib import Path
 from typing import Callable, Optional, Union
 
-from songbot.models_song import Appearance, Event, SongEntry
+from songbot.models_song import Appearance, Event, Setlist, SongEntry, Track
 from songbot.s3_match import DEFAULT_TOP_N, SCORE_THRESHOLD, _score_text, normalize
 
 logger = logging.getLogger("songbot.s8_song_index")
@@ -60,6 +60,7 @@ class SongIndex:
     def __init__(self) -> None:
         self.entries: dict[str, SongEntry] = {}   # 键 = normalize(歌名)
         self.source_urls: set[str] = set()        # 已抓过的详情页 URL（增量刷新边界/去重）
+        self.setlists: dict[str, Setlist] = {}    # 详情 URL -> 完整 Setlist（全量缓存，song/live 出图免网络）
         self.fetched_at: float = 0.0              # 最近一次构建/刷新时间戳
 
     def __len__(self) -> int:
@@ -102,6 +103,7 @@ def _merge_setlist(index: SongIndex, spec: dict, fetch_setlist: Callable) -> Non
     except Exception as exc:  # noqa: BLE001 — 站点坏条目/网络抖动：跳过该页，其余继续
         logger.warning("歌曲索引跳过 %s: %s", url, exc)
         return
+    index.setlists[url] = sl   # 全量缓存完整 setlist（2026-08-27：song/live 出图免网络）
     for tr in sl.tracks:
         if not tr.title:
             continue
@@ -183,6 +185,54 @@ def refresh_song_index(
 # ---------------------------------------------------------------------------
 # 落盘缓存（JSON）
 # ---------------------------------------------------------------------------
+def _setlist_to_dict(sl: Setlist) -> dict:
+    """Setlist -> JSON dict（全量缓存落盘用）。"""
+    return {
+        "title": sl.title,
+        "date_venue": sl.date_venue,
+        "performers": list(sl.performers),
+        "performer_colors": list(sl.performer_colors),
+        "tracks": [
+            {
+                "no": t.no,
+                "title": t.title,
+                "brand": t.brand,
+                "performers": list(t.performers),
+                "performer_colors": list(t.performer_colors),
+                "link": t.link,
+            }
+            for t in sl.tracks
+        ],
+        "url": sl.url,
+    }
+
+
+def _setlist_from_dict(d) -> Optional[Setlist]:
+    """JSON dict -> Setlist；非法输入返回 None。"""
+    if not isinstance(d, dict):
+        return None
+    tracks: list[Track] = []
+    for t in d.get("tracks") or []:
+        if not isinstance(t, dict):
+            continue
+        tracks.append(Track(
+            no=int(t.get("no") or 0),
+            title=str(t.get("title") or ""),
+            brand=t.get("brand"),
+            performers=[str(x) for x in (t.get("performers") or [])],
+            performer_colors=[x for x in (t.get("performer_colors") or [])],
+            link=t.get("link"),
+        ))
+    return Setlist(
+        title=str(d.get("title") or ""),
+        date_venue=str(d.get("date_venue") or ""),
+        performers=[str(x) for x in (d.get("performers") or [])],
+        performer_colors=[x for x in (d.get("performer_colors") or [])],
+        tracks=tracks,
+        url=str(d.get("url") or ""),
+    )
+
+
 def _song_index_to_dict(index: SongIndex) -> dict:
     return {
         "fetched_at": index.fetched_at,
@@ -198,6 +248,7 @@ def _song_index_to_dict(index: SongIndex) -> dict:
             }
             for e in index.entries.values()
         ],
+        "setlists": {url: _setlist_to_dict(sl) for url, sl in index.setlists.items()},
     }
 
 
@@ -228,6 +279,11 @@ def _song_index_from_dict(data) -> Optional[SongIndex]:
                 url=str(a.get("url") or ""),
             ))
         index.entries[normalize(title)] = entry
+    index.setlists = {}
+    for u, d in (data.get("setlists") or {}).items():
+        sl = _setlist_from_dict(d)
+        if sl is not None:
+            index.setlists[str(u)] = sl
     return index
 
 

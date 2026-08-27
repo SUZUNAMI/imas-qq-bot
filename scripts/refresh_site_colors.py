@@ -98,6 +98,27 @@ def extract_character_colors(css: str) -> dict:
     return _extract_rule_colors(css, "character-id")
 
 
+def extract_idol_class_colors(css: str) -> dict:
+    """.idol_<class>{color:…} 规则 → {"idol_sc_sakuya": "#006047"}（早期版式文字色方案）.
+
+    S11（2026-08-27）：2022 及更早公演用 ``<span class="idol_*">`` 演者标记，
+    颜色定义在 ``.idol_*{color:…!important}``（如 ``idol_sc_unit02`` / ``idol_ml_mirai``）。
+    块级解析、后定义覆盖先定义（与 ``_extract_rule_colors`` 一致，逗号分隔共享块
+    的每个类都记录）；``color:`` 捕获组排除 ``!important``（早期规则普遍带 !important）。
+    实测 imas.min.css + maruamyu.min.css 共 174 条（覆盖 sc 37 / ml 76 / gk 15 / 765AS / …）。
+    """
+    out: dict[str, str] = {}
+    for m in re.finditer(r"([^{}]+)\{([^}]*)\}", css):
+        sel, body = m.group(1), m.group(2)
+        cm = re.search(r"color:\s*([^;!}]+)", body)
+        if not cm:
+            continue
+        color = cm.group(1).strip()
+        for cls in re.findall(r"\.(idol_[a-z0-9_]+)\b", sel):
+            out[cls] = color
+    return out
+
+
 def extract_style_colors(maruamyu_css: str) -> dict:
     """从 maruamyu.min.css 提取版式色（找不到的键留空，由渲染侧回退内置值）。"""
     out: dict[str, str] = {}
@@ -149,6 +170,7 @@ def main(argv=None) -> int:
         "attr_colors": extract_attr_colors(imas_css),   # 属性色（cinderella/million/sidem）
         "group_colors": extract_group_colors(css),      # 组合色（data-group-id）
         "character_colors": extract_character_colors(css),  # 角色个人应援色（data-character-id，优先级最高）
+        "idol_class_colors": extract_idol_class_colors(css),  # 早期版式 .idol_*{color}（S11）
     }
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     out_path = os.path.join(root, SITE_COLORS_FILE)
@@ -158,7 +180,8 @@ def main(argv=None) -> int:
 
     print(f"[OK] {len(brand_keys)} 品牌色 / {len(data['brand_id_map'])} brand-id / "
           f"{len(data['attr_colors'])} 属性色 / {len(data['group_colors'])} 组合色 / "
-          f"{len(data['character_colors'])} 角色个人色 / {len(style)} 版式色 -> {out_path}")
+          f"{len(data['character_colors'])} 角色个人色 / {len(data['idol_class_colors'])} 早期类色 / "
+          f"{len(style)} 版式色 -> {out_path}")
     print("  brand_id_map:", json.dumps(data["brand_id_map"], ensure_ascii=False))
     print("  attr_colors:", json.dumps(data["attr_colors"], ensure_ascii=False))
     print("  group_colors:", json.dumps(data["group_colors"], ensure_ascii=False))

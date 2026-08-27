@@ -1,7 +1,8 @@
 # 子任务：歌曲列表 bot（songbot）
 
 > 本目录是从主仓库 `官号转发bot` 拆分出的**子工作区**，用于独立完成「歌曲列表查询」子任务。
-> **状态（2026-08-27）：S1–S6 / S8 / S9 / **S7 收尾** 全部完成**（全仓 318/318 单测全绿 + 离线冒烟通过），
+> **状态（2026-08-27）：S1–S6 / S8 / S9 / S7 收尾 / **S11 早期演者颜色兼容** 全部完成**
+> （S2 55/55 + 非渲染全量单测全绿 + MUGEN BEAT 真实渲染像素验收；仅 S4 渲染 5 项需脱离沙箱运行），
 > 成果已合并回主仓库 `官号转发bot`（见主仓库 `docs/index.md` §6）；songbot 与主新闻模块（M7）**独立进程、独立启动**。
 
 ## 任务
@@ -13,6 +14,7 @@
 - [`docs/S1-S7-taskplan.md`](docs/S1-S7-taskplan.md) —— **S1–S7 完整施工图**（逐步骤实现、选择器、单测要点、验收清单、产出文件），开工直接照写。
 - [`docs/S8-song-lookup-plan.md`](docs/S8-song-lookup-plan.md) —— **S8 歌曲反查 Live 计划**（反向索引构建/增量刷新/契约扩展/两段式验收）。
 - [`docs/S9-bindings-update-plan.md`](docs/S9-bindings-update-plan.md) —— **S9 绑定别名 + 手动刷新计划**（`binding`/`unbind`/`bindings`/`update live`）。
+- [`docs/S11-legacy-color-fix-plan.md`](docs/S11-legacy-color-fix-plan.md) —— **S11 早期演者颜色兼容修复计划**（S2 识别早期 `idol_*` 类名演者 + `idol_class_colors` 颜色表，已完成）。
 - [`docs/modules/S7-delivery-plan.md`](docs/modules/S7-delivery-plan.md) —— **S7 收尾计划**（启动/停止双群通知、后台挂载脚本、合并回主仓库）。
 
 ## 目录说明
@@ -27,7 +29,7 @@
 | `docs/index.md` | 主项目文档索引（维护约定参考） |
 | `agent.md` | 全局约定（需求不清晰先提问、大改前先给计划、及时写文档备查） |
 | `ref/` | 参考实现：`m1_fetcher.py`(httpx 抓取) / `m6_notifier.py`(OneBot 发送) / `models.py`(契约 dataclass) / `main.py`(主控/后台/日志) / `acceptance_m6.py`(OneBot 验收) |
-| `fixtures/` | 抓好的 HTML 样例（`imas_db_song_event.html` 列表页、`imas_db_iwsf_day1.html` 详情页等），供离线写解析/测试 |
+| `fixtures/` | 抓好的 HTML 样例（`imas_db_song_event.html` 列表页、`imas_db_iwsf_day1.html` 详情页等，供离线写解析/测试；S11 增早期样本 `imas_db_mugenbeat_day1.html` 等） |
 | `vendor/` | 运行时依赖（httpx / bs4 / python-dotenv / playwright / pyee / greenlet 等），已解包可直接 import |
 | `songbot/` | 模块包：`models_song.py`(契约) / `s1_fetch_events.py` / `s2_fetch_setlist.py` / `s3_match.py` / `s4_render.py` / `s5_receiver.py` / **`s8_song_index.py`（S8 歌曲反查索引）** / **`s9_binding.py`（S9 绑定别名）** / **`bot.py`（S6 主控，常驻入口；S7 增启动/停止双群状态通知 + 停止文件优雅退出）** |
 | `scripts/start_songbot.cmd` / `stop_songbot.cmd` | **S7 后台挂载**：新开独立 `SongBot` 窗口运行 / 优雅停止（写停止文件 → bot 发停止通知后退出，超时回退强杀）；**启动前自动检查/恢复 NapCat 8090 上报配置**（幂等，Desktop 重启清空 httpClients 时自动补回） |
@@ -69,7 +71,7 @@ python -m songbot.bot --dry-run  # 预演：只打印不真实发送（含状态
 1. 站点为 **纯 HTTP**（`https://` 连接失败），服务端渲染 HTML，**无 JSON API**。
 2. **编码坑**：`Content-Type` 无 charset，务必按**字节显式 UTF-8** 解码（`resp.content.decode('utf-8')`），不要信任默认解码。
 3. 列表页 `/song/event`：125 个顶层事件，按 `<h2>YYYY年</h2>` 分组；事件分「单页」（一个 `<a>`）与「多日」（嵌套 `<ul><li>` DAY1/DAY2…）。
-4. 详情页核心是 `<table class="tracklist">`：表头 No./楽曲/演者；行内歌名 + 品牌徽章、演者为 `<span class="idol-name">`。**详情页有三种版式**（IWSF 型 `div.m-2` / 13thLIVE 型 `<p>` / 音乐剧型含公演日程表+幕标题行+无序号行），S2 解析已泛化，详见 `docs/modules/S2-fetch-setlist-worklog.md`。
+4. 详情页核心是 `<table class="tracklist">`：表头 No./楽曲/演者；行内歌名 + 品牌徽章、演者为 `<span class="idol-name">`。**详情页有四种版式**（IWSF 型 `div.m-2` / 13thLIVE 型 `<p>` / 音乐剧型含公演日程表+幕标题行+无序号行 / **早期版式（2022 及更早）用 `span[class^="idol_"]` 类名演者 + `.idol_*{color}` 文字色（S11 已兼容）**），S2 解析已泛化，详见 `docs/modules/S2-fetch-setlist-worklog.md` / `docs/modules/S11-legacy-color-fix-worklog.md`。
 5. `@bot` 接收需给 NapCat 的 OneBot 配置追加 **`postUrls`（HTTP POST 事件上报）**，本地起 HTTP 服务接收；不动现有 3000 发送通道。
 6. 图片渲染用**无头浏览器（Edge）**：系统已装 `C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`；可 vendor 化 Playwright wheel + `channel="msedge"`（免下载 Chromium）。
 

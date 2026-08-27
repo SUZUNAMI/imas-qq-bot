@@ -89,11 +89,17 @@ flowchart LR
     "（超长正文的后续分片）…"
   ],
   "images": ["https://...jpg"],
-  "link": "https://idolmaster-official.jp/news/01_17821"
+  "link": "https://idolmaster-official.jp/news/01_17821",
+  "ats": []
 }
 ```
 - `segments`：已按 QQ 单条消息长度分好片的文本段，M6 顺序发送。
 - `images`：可选，转 OneBot `[CQ:image,file=...]` 由 M6 处理。
+- `ats`：**可选（2026-08-27 songbot 追加，默认空）**——需 @ 的 QQ 列表，M6 拼为
+  **独立 `at` 消息段**附在首段文本/图片前（回复归属，如 songbot 按用户分类回复）。
+  注意：不要把 `[CQ:at,...]` 嵌进 `segments` 文本——NapCat array 消息形态下 CQ 码嵌 text 会**字面显示**，
+  必须用 `ats` 字段（M6 生成 `{"type":"at","data":{"qq":...}}` 段）。
+  默认空列表，M5/M6/M7 既有用法零影响（契约向后兼容）。
 
 ### 1.5 PushResult（推送结果，M6 输出 / M8 记录）
 

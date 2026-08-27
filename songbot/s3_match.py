@@ -67,7 +67,7 @@ ALIASES: dict[str, str] = {
 
 # 命令前缀（split_command 强制前缀分流）。song 由 S8 线程接入（2026-08-27 S9 约定：
 # S9 先落地 binding/unbind/bindings/update + live，S8 落地 song）。
-COMMANDS: frozenset = frozenset({"live", "song", "binding", "unbind", "bindings", "update"})
+COMMANDS: frozenset = frozenset({"live", "song", "binding", "unbind", "bindings", "update", "refresh"})
 
 
 # ---------------------------------------------------------------------------

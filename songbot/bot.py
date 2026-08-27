@@ -30,8 +30,13 @@ S4（图片渲染）/ S5（事件接收+会话），完成群内 ``@bot`` **两�
   （构建中 ``song`` 查询回「歌曲索引构建中…」）；每次 ``song`` 查询前**增量刷新**
   （重抓列表页 → 按列表顺序扫描详情 URL，**遇到第一个已收录即停止**，仅抓新增并入索引）；
   ``update live`` 钩子（``song_refresher``）用最新事件全量重建歌曲索引；
-- 依赖全部可注入（events / setlist_client / renderer / sender / session / bindings /
-  song_index / song_refresher / clock），离线单测零网络；
+- S10（2026-08-27 计划拍板）：**@only 门控**——未 ``at_bot`` 的消息一律忽略
+  （含会话二次确认，**每轮回复都需 @bot**）；**列表类回复图片化**——候选/子列表/
+  时间筛选/歌曲出现/bindings 六类列表改走 ``render_list``（S4 泛化，``_send_list``）
+  发图（图内 footer 统一「回复序号」，序号即会话确认序号）；``format_*`` 纯文本函数
+  保留（dry-run / 图片失败回退文本用）；
+- 依赖全部可注入（events / setlist_client / renderer / list_renderer / sender / session /
+  bindings / song_index / song_refresher / clock），离线单测零网络；
 - 日志同主项目 M7 习惯：UTF-8 + ``data/logs/songbot.log`` RotatingFileHandler，异常不退出；
 - S7（2026-08-27）：启动成功/优雅停止时向 ``songbot.notify_groups``（主群+测试群）发状态通知
   （``_startup_text``/``_shutdown_text``/``_notify_groups``）；主循环监听停止文件
@@ -74,7 +79,7 @@ from m6_notifier import push  # noqa: E402
 from models import PushMessage  # noqa: E402  （ref/models.py，契约单一事实源）
 
 from songbot.models_song import Appearance, Event, Setlist, SongEntry  # noqa: E402
-from songbot.s1_fetch_events import EVENT_LIST_URL, FetchError, fetch_events  # noqa: E402
+from songbot.s1_fetch_events import DEFAULT_HEADERS, EVENT_LIST_URL, FetchError, fetch_events  # noqa: E402
 from songbot.s2_fetch_setlist import fetch_setlist  # noqa: E402
 from songbot.s3_match import (  # noqa: E402
     classify_query,
@@ -85,7 +90,7 @@ from songbot.s3_match import (  # noqa: E402
     parse_time_query,
     split_command,
 )
-from songbot.s4_render import render_setlist  # noqa: E402
+from songbot.s4_render import render_list, render_setlist, warmup_browser  # noqa: E402
 from songbot.s5_receiver import DEFAULT_PORT, EventReceiver, Incoming, SessionStore  # noqa: E402
 from songbot.s8_song_index import (  # noqa: E402
     SongIndex,
@@ -111,6 +116,7 @@ logger = logging.getLogger("songbot.bot")
 DEFAULT_TTL_SEC = 300.0                # 会话 TTL（秒），与 S5 默认一致
 DEFAULT_REPLY_LIMIT = 10               # 时间筛选/候选列表单次回复上限（超出提示「还有 N 场」）
 DEFAULT_CACHE_TTL_SEC = 86400          # 事件索引缓存有效期（秒），默认 24h
+SONG_REFRESH_FETCH_TIMEOUT = 5.0       # 增量刷新列表页抓取短超时（秒），断网快速失败不阻塞
 LOG_DIR = os.path.join(_ROOT, "data", "logs")
 LOG_FILE = os.path.join(LOG_DIR, "songbot.log")
 
@@ -264,6 +270,22 @@ def format_event_list(events: list[Event], limit: int = DEFAULT_REPLY_LIMIT) -> 
     return "\n".join(lines)
 
 
+def _event_list_rows(events: list[Event]) -> list[tuple[str, str]]:
+    """事件列表行（S10 render_list 用）：[(主文本=事件名, 副文本=日期/多日子项)]。
+
+    序号由 render_list 自动 1 起；**全部事件都进图**（图片可分页，不再按
+    ``reply_limit`` 截断——会话确认序号以全部事件为准，与图片序号一致）。
+    """
+    rows: list[tuple[str, str]] = []
+    for ev in events:
+        if ev.sub_events:
+            subs = "、".join(f"{s.title}({s.date})" for s in ev.sub_events if s.date)
+            rows.append((ev.title, f"多日：{subs}" if subs else "多日"))
+        else:
+            rows.append((ev.title, ev.date or ""))
+    return rows
+
+
 def format_sub_list(event: Event) -> str:
     """多日事件的子公演列表（1..N. 子公演名（日期）），末尾带二次确认提示。"""
     lines = [f"「{event.title}」"]
@@ -350,6 +372,8 @@ class SongBot:
     - ``events``：事件索引（None 时由 ``build_index()`` 构建）
     - ``setlist_client``：httpx.Client（注入 ``fetch_setlist``；None 自建）
     - ``renderer``：``callable(setlist, *, out_dir=None) -> list[Path]``（默认 ``render_setlist``）
+    - ``list_renderer``：``callable(title, rows, *, out_dir=None, hint=...) -> list[Path]``
+      （S10 默认 ``render_list``；列表类回复发图用）
     - ``sender``：``callable(group_id: str, text: str, image_paths: list[Path]) -> bool``
       （默认 ``_default_sender``：M6 push + base64:// 图片）
     - ``session``：SessionStore（默认按 cfg.ttl_sec 新建）
@@ -367,6 +391,7 @@ class SongBot:
         events: Optional[list[Event]] = None,
         setlist_client=None,
         renderer: Optional[Callable] = None,
+        list_renderer: Optional[Callable] = None,
         sender: Optional[Callable] = None,
         session: Optional[SessionStore] = None,
         bindings: Optional[BindingStore] = None,
@@ -377,6 +402,7 @@ class SongBot:
         self.events = list(events) if events else []
         self.setlist_client = setlist_client
         self.renderer = renderer or render_setlist
+        self.list_renderer = list_renderer or render_list   # S10：列表类回复发图
         self.sender = sender or self._default_sender
         self.session = session or SessionStore(ttl=self.cfg.ttl_sec)
         self.bindings = bindings if bindings is not None else BindingStore(path=self.cfg.bindings_file)
@@ -529,25 +555,32 @@ class SongBot:
         except OSError as exc:
             logger.warning("歌曲索引缓存写入失败（不影响运行）: %s", exc)
 
-    def _refresh_song_index(self) -> None:
-        """song 查询前增量刷新：重抓列表页 -> diff 新增详情 URL（首个已收录即停止）-> 并入索引。
+    def _refresh_song_index(self) -> Optional[int]:
+        """增量刷新歌曲反向索引（**手动触发**，``refresh`` 命令对所有人开放）：重抓列表页 ->
+        diff 新增详情 URL -> 并入索引。
 
-        列表页重抓失败沿用现有索引并告警（查询仍可用旧索引）；仅新增来源页时落盘。
+        列表页重抓用短超时（SONG_REFRESH_FETCH_TIMEOUT）；失败沿用现有索引返回 None；
+        仅新增来源页时落盘。返回新增来源页数（0 = 无新增）。
         """
         if self.song_index is None:
-            return
+            return None
         with self.song_index_lock:
             try:
-                fresh = fetch_events(self.cfg.event_list_url)
+                fresh = fetch_events(
+                    self.cfg.event_list_url,
+                    client=httpx.Client(timeout=SONG_REFRESH_FETCH_TIMEOUT,
+                                        headers=DEFAULT_HEADERS, follow_redirects=True),
+                )
             except FetchError:
-                logger.warning("song 查询前列表刷新失败（沿用现有歌曲索引）")
-                return
+                logger.info("增量刷新列表页抓取失败（沿用现有歌曲索引）")
+                return None
             before = len(self.song_index.source_urls)
             refresh_song_index(self.song_index, fresh, self._fetch_setlist_for_index)
             added = len(self.song_index.source_urls) - before
             if added:
                 logger.info("歌曲索引增量刷新：新增 %d 个来源页", added)
                 self._song_index_save()
+            return added
 
     def _song_refresher(self, events: list[Event]) -> int:
         """S9 ``update live`` 钩子：用最新事件列表**全量重建**歌曲反向索引，返回歌曲数。"""
@@ -571,30 +604,26 @@ class SongBot:
 
     def _handle(self, inc: Incoming) -> None:
         text = (inc.text or "").strip()
-        if not text:
+        # S10 @only 门控：未 @bot 的消息一律忽略（含会话二次确认——每轮回复都需 @bot；
+        # 之前「有会话但无 @ → 二次确认/提示」路径按 2026-08-27 拍板决策删除）
+        if not text or not inc.at_bot:
             return
         group, user = inc.group_id, inc.user_id
-        # quit：用户取消当前等待（任何会话 context 通用；无 @ 且无会话时忽略，不打扰）
+        # quit：用户取消当前等待（任何会话 context 通用；此处已保证 at_bot）
         if text.casefold() == "quit":
             had = self.session.get(group, user) is not None
             self.session.clear(group, user)
             if had:
                 self._send_text(group, "已取消本次查询，可重新 @bot 发起（live / song）", user)
-            elif inc.at_bot:
+            else:
                 self._send_text(group, "当前没有进行中的查询（@bot live / song 发起）", user)
             return
         ctx = self.session.get(group, user)
         if ctx is not None:
             if self._try_confirm(inc, ctx):
                 return
-            if not inc.at_bot:
-                # 有会话但没看懂（无 @）：给提示，保留会话
-                self._send_text(group, "没看懂这条回复…请回复序号、DAY1、公演名或歌名；或回复 quit 取消", user)
-                return
             # @ 了 bot 且会话内解析失败 -> 回落第一段（视为新查询）
-        if inc.at_bot:
-            self._first_stage(inc, text)
-        # 无会话且未 @：忽略（不打扰无关消息）
+        self._first_stage(inc, text)
 
     # ------------------------------------------------------------------
     # 第二段：会话内二次确认
@@ -631,11 +660,12 @@ class SongBot:
             if len(hits) == 1:
                 self._resolve_event(inc, hits[0])
                 return True
-            # 候选内仍多义：更新候选重新列出
+            # 候选内仍多义：更新候选重新列出（S10：走 render_list 发图）
             self.session.set(group, user, {"kind": CTX_CANDIDATES, "events": hits})
-            self._send_text(group, "还是没唯一确定，这些候选：\n"
-                                   + format_event_list(hits, self.cfg.reply_limit)
-                                   + "\n回复序号或 LIVE 名", user)
+            title = "还是没唯一确定，这些候选"
+            fallback = (title + "：\n" + format_event_list(hits, self.cfg.reply_limit)
+                        + "\n回复序号或 LIVE 名")
+            self._send_list(group, user, title, _event_list_rows(hits), fallback)
             return True
 
         if kind == CTX_SONG_CANDIDATES:
@@ -657,8 +687,10 @@ class SongBot:
                 self._list_song_lives(group, user, hits[0])
                 return True
             self.session.set(group, user, {"kind": CTX_SONG_CANDIDATES, "songs": hits})
-            self._send_text(group, "还是没唯一确定，这些候选：\n"
-                                   + format_song_candidates(hits), user)
+            title = "还是没唯一确定，这些候选"
+            rows = [(s.title, f"{len(s.appearances)} 场 LIVE") for s in hits]
+            fallback = title + "：\n" + format_song_candidates(hits)
+            self._send_list(group, user, title, rows, fallback)
             return True
 
         if kind == CTX_SONG_LIVES:
@@ -687,7 +719,7 @@ class SongBot:
         parsed = split_command(text)
         if parsed is None:
             # 无前缀 / 未知命令 -> 用法提示（强制前缀）
-            self._send_text(group, "请用命令前缀（live / song / binding / unbind / bindings / update）。\n" + USAGE, user)
+            self._send_text(group, "请用命令前缀（live / song / refresh / binding / unbind / bindings / update）。\n" + USAGE, user)
             return
         cmd, rest = parsed
         # 管理命令权限控制（S9）：binding/unbind/bindings/update 仅群主/管理员可用
@@ -698,6 +730,8 @@ class SongBot:
             self._handle_live(inc, rest)
         elif cmd == "song":
             self._handle_song(inc, rest)
+        elif cmd == "refresh":
+            self._handle_refresh(group, user)
         elif cmd == "binding":
             self._handle_binding(group, user, rest)
         elif cmd == "unbind":
@@ -708,7 +742,7 @@ class SongBot:
             self._handle_update(group, user, rest)
         else:
             # 识别但尚未接入的命令
-            self._send_text(group, f"命令「{cmd}」尚未开放，可用：live / song / binding / unbind / bindings / update live", user)
+            self._send_text(group, f"命令「{cmd}」尚未开放，可用：live / song / refresh / binding / unbind / bindings / update live", user)
 
     # ---------------- song：歌曲反查 LIVE（S8） ----------------
     def _handle_song(self, inc: Incoming, rest: str) -> None:
@@ -721,7 +755,6 @@ class SongBot:
         if self.song_index is None:
             self._send_text(group, "歌曲索引尚未构建完成（首次构建约需数分钟），请稍后再试", user)
             return
-        self._refresh_song_index()                 # 每次查询前增量刷新（仅抓新增）
         hits = match_songs(text, self.song_index)
         if not hits:
             self._send_text(group, f"没有找到与「{text}」匹配的歌曲。\n" + USAGE, user)
@@ -730,8 +763,10 @@ class SongBot:
             self._list_song_lives(group, user, hits[0])
             return
         self.session.set(group, user, {"kind": CTX_SONG_CANDIDATES, "songs": hits})
-        self._send_text(group, "找到多首候选歌曲，请选择：\n"
-                               + format_song_candidates(hits), user)
+        title = "找到多首候选歌曲，请选择"
+        rows = [(s.title, f"{len(s.appearances)} 场 LIVE") for s in hits]
+        fallback = title + "：\n" + format_song_candidates(hits)
+        self._send_list(group, user, title, rows, fallback)
 
     def _list_song_lives(self, group: str, user: str, entry: SongEntry) -> None:
         """歌曲唯一落定：列出该歌出现过的 LIVE（序号+事件+子公演+日期），会话记 CTX_SONG_LIVES。"""
@@ -740,7 +775,12 @@ class SongBot:
             return
         self.session.set(group, user, {"kind": CTX_SONG_LIVES, "song": entry,
                                        "lives": entry.appearances})
-        self._send_text(group, format_song_lives(entry), user)
+        rows: list[tuple[str, str]] = []
+        for a in entry.appearances:
+            label = a.event_title + (f"（{a.sub_title}）" if a.sub_title else "")
+            rows.append((label, a.date or ""))
+        title = f"「{entry.title}」出现在 {len(entry.appearances)} 场 LIVE"
+        self._send_list(group, user, title, rows, format_song_lives(entry))
 
     # ---------------- live：绑定 -> 时间 -> 名称 ----------------
     def _handle_live(self, inc: Incoming, rest: str) -> None:
@@ -775,9 +815,11 @@ class SongBot:
                 self._send_text(group, f"未找到 {label} 的 LIVE。试试 live + LIVE 名，如 live IWSF2026 / live 13thLIVE", user)
                 return
             self.session.set(group, user, {"kind": CTX_CANDIDATES, "events": hits})
-            self._send_text(group, f"{label} 的 LIVE（共 {len(hits)} 场）：\n"
-                                   + format_event_list(hits, self.cfg.reply_limit)
-                                   + "\n回复序号或 LIVE 名", user)
+            title = f"{label} 的 LIVE（共 {len(hits)} 场）"
+            fallback = (f"{label} 的 LIVE（共 {len(hits)} 场）：\n"
+                        + format_event_list(hits, self.cfg.reply_limit)
+                        + "\n回复序号或 LIVE 名")
+            self._send_list(group, user, title, _event_list_rows(hits), fallback)
             return
         # 3) 名称匹配
         matches = match_events(text, self.events)
@@ -788,9 +830,10 @@ class SongBot:
             self._resolve_event(inc, matches[0])
             return
         self.session.set(group, user, {"kind": CTX_CANDIDATES, "events": matches})
-        self._send_text(group, "找到多个匹配，请选择：\n"
-                               + format_event_list(matches, self.cfg.reply_limit)
-                               + "\n回复序号或 LIVE 名", user)
+        title = "找到多个匹配，请选择"
+        fallback = (title + "：\n" + format_event_list(matches, self.cfg.reply_limit)
+                    + "\n回复序号或 LIVE 名")
+        self._send_list(group, user, title, _event_list_rows(matches), fallback)
 
     def _find_index_event(self, bound: Event) -> Optional[Event]:
         """把绑定存储的事件映射回**当前索引**中的事件（新鲜数据）。
@@ -847,8 +890,25 @@ class SongBot:
         if not items:
             self._send_text(group, "暂无绑定。用 binding <略缩> <事件名> 添加，如 binding iwsf IDOL WORLD SUPER FESTIVAL 2026", user)
             return
-        lines = [f"{alias} → {ev.title}" for alias, ev in items]
-        self._send_text(group, f"全部绑定（{len(lines)} 条）：\n" + "\n".join(lines), user)
+        title = f"全部绑定（{len(items)} 条）"
+        rows = [(alias, ev.title) for alias, ev in items]
+        fallback = title + "：\n" + "\n".join(f"{alias} → {ev.title}" for alias, ev in items)
+        self._send_list(group, user, title, rows, fallback)
+
+    # ---------------- refresh：手动增量更新歌曲索引（对所有人开放） ----------------
+    def _handle_refresh(self, group: str, user: str) -> None:
+        """``@bot refresh``：手动增量更新歌曲反向索引（重抓列表页 -> 只抓新增公演）。"""
+        if self.song_index is None:
+            self._send_text(group, "歌曲索引尚未构建完成，请稍后再试", user)
+            return
+        self._send_text(group, "正在增量更新歌曲索引，请稍候…", user)
+        added = self._refresh_song_index()
+        if added is None:
+            self._send_text(group, "增量更新失败（列表页抓取失败），沿用现有索引", user)
+        elif added:
+            self._send_text(group, f"增量更新完成：新增 {added} 个公演", user)
+        else:
+            self._send_text(group, "增量更新完成：没有新增公演", user)
 
     # ---------------- update live ----------------
     def _handle_update(self, group: str, user: str, rest: str) -> None:
@@ -871,7 +931,8 @@ class SongBot:
         group, user = inc.group_id, inc.user_id
         if ev.sub_events:
             self.session.set(group, user, {"kind": CTX_EVENT, "event": ev})
-            self._send_text(group, format_sub_list(ev), user)
+            rows = [(s.title, s.date or "") for s in ev.sub_events]
+            self._send_list(group, user, ev.title, rows, format_sub_list(ev))
         else:
             self.session.clear(group, user)
             self._full_flow(group, user, ev.url, ev.title)
@@ -885,17 +946,34 @@ class SongBot:
             return None
         return Path(base) / datetime.now().strftime("%Y%m%d_%H%M%S")
 
+    def _cached_setlist(self, url: str) -> Optional[Setlist]:
+        """全量 setlist 缓存查询（S8 构建索引时顺带缓存；未命中返回 None）。"""
+        if self.song_index is not None:
+            return self.song_index.setlists.get(url)
+        return None
+
+    def _cache_setlist(self, url: str, sl: Setlist) -> None:
+        """把网络抓到的 setlist 顺手写回全量缓存（网络不稳时逐步补齐；失败仅告警）。"""
+        if self.song_index is None:
+            return
+        with self.song_index_lock:
+            self.song_index.setlists[url] = sl
+            self._song_index_save()
+
     def _full_flow(self, group_id: str, user_id: str, url: str, label: str) -> None:
         """抓详情 + 渲染 PNG + 发送；任一环节失败给用户明确回复，不抛异常。
 
         :param user_id: 发起用户 QQ（回复带 @ 归属；图片消息也带 @）
         """
-        try:
-            sl = fetch_setlist(url, client=self.setlist_client)
-        except Exception as exc:  # noqa: BLE001 — 抓取失败给提示
-            logger.warning("详情抓取失败: %s: %s", url, exc)
-            self._send_text(group_id, f"抓取公演详情失败（{type(exc).__name__}），请稍后再试或换个 LIVE", user_id)
-            return
+        sl = self._cached_setlist(url)   # 命中全量缓存免网络（2026-08-27）
+        if sl is None:
+            try:
+                sl = fetch_setlist(url, client=self.setlist_client)
+            except Exception as exc:  # noqa: BLE001 — 抓取失败给提示
+                logger.warning("详情抓取失败: %s: %s", url, exc)
+                self._send_text(group_id, f"抓取公演详情失败（{type(exc).__name__}），请稍后再试或换个 LIVE", user_id)
+                return
+            self._cache_setlist(url, sl)   # 按需补写：网络不稳时逐步补齐全量缓存（2026-08-27）
         if not sl.tracks:
             self._send_text(group_id, f"「{sl.title or label}」没有可显示的曲目", user_id)
             return
@@ -919,11 +997,12 @@ class SongBot:
             return
         if not ok:
             # S7 bug 修复（2026-08-27 实测）：NapCat sendMsg 偶发「回执超时」返回 status=failed，
-            # 但消息实际已送达——若直接发文字版兜底，用户会看到「先失败文字版 + 后图片」。
-            # 先查该群最近消息确认图片是否已送达：已送达则跳过兜底，避免重复/误报。
+            # 但消息实际已送达——先查群历史确认是否已送达：已送达则降级为 INFO（假阴性），
+            # 不刷「发送失败」告警、不重复发文字版兜底（2026-08-27 告警刷屏修复）。
             if self._confirm_group_image(group_id):
-                logger.info("图片疑似已送达（发送返回失败但群内已有 bot 图片），跳过文字版兜底")
+                logger.info("图片已送达（NapCat 回执超时假阴性），跳过文字版兜底")
                 return
+            logger.warning("图片发送失败（群 %s），改发文字版", group_id)
             self._send_text(group_id, "图片发送失败，改发文字版：\n" + setlist_text(sl), user_id)
 
     # ------------------------------------------------------------------
@@ -937,9 +1016,51 @@ class SongBot:
         if user_id:
             text = f"[CQ:at,qq={user_id}] {text}"
         try:
-            self.sender(str(group_id), text, [])
+            ok = self.sender(str(group_id), text, [])
+            if not ok:
+                logger.warning("发送文本失败（群 %s）", group_id)
         except Exception as exc:  # noqa: BLE001
             logger.warning("发送文本失败（群 %s）: %s", group_id, exc)
+
+    def _send_list(self, group_id: str, user_id: str, title: str,
+                   rows: list[tuple[str, str]], text_fallback: str,
+                   *, hint: str = "回复序号") -> None:
+        """列表类回复发图（S10.3）：``render_list`` → 发图（带 @ 归属）；失败回退纯文本。
+
+        候选/子列表/时间筛选/歌曲出现/bindings 等「序号 + 名称 + 日期」列表统一走此方法：
+        图片内 footer 统一「回复序号」（S10 拍板），序号与会话确认序号一致；
+        渲染失败 / 图片为空 / 发送失败（含 NapCat 假失败送达确认）→ 回退 ``text_fallback``。
+
+        :param title: 图内标题（如「2026年7月 的 LIVE（共 2 场）」）
+        :param rows: [(主文本, 副文本)]，序号自动 1 起
+        :param text_fallback: 失败时回退发送的纯文本（``format_*`` 产物，含确认提示）
+        :param hint: 图内 footer 提示（默认「回复序号」）
+        """
+        try:
+            paths = list(self.list_renderer(title, rows, out_dir=self._render_out(), hint=hint))
+        except Exception as exc:  # noqa: BLE001 — 列表渲染失败回退文本
+            logger.exception("列表图片渲染失败（回退纯文本）: %s", exc)
+            self._send_text(group_id, text_fallback, user_id)
+            return
+        if not paths:
+            logger.warning("列表图片渲染结果为空（回退纯文本）: %s", title)
+            self._send_text(group_id, text_fallback, user_id)
+            return
+        at_text = f"[CQ:at,qq={user_id}]" if user_id else ""
+        try:
+            ok = bool(self.sender(group_id, at_text, [Path(p) for p in paths]))
+        except Exception as exc:  # noqa: BLE001 — 列表图片发送异常回退文本
+            logger.exception("列表图片发送异常（回退纯文本）: %s", exc)
+            self._send_text(group_id, text_fallback, user_id)
+            return
+        if not ok:
+            # 同 _full_flow：NapCat 偶发「回执超时」假失败——先确认群内是否已有 bot 图片；
+            # 已送达则降级为 INFO（假阴性），不刷「发送失败」告警（2026-08-27 告警刷屏修复）。
+            if self._confirm_group_image(group_id):
+                logger.info("列表图片已送达（NapCat 回执超时假阴性），跳过文本兜底")
+                return
+            logger.warning("列表图片发送失败（群 %s），改发文本", group_id)
+            self._send_text(group_id, text_fallback, user_id)
 
     def _confirm_group_image(self, group_id: str, within_seconds: float = 20.0) -> bool:
         """确认该群最近是否已有 **bot 本人** 发出的图片（NapCat 假失败的送达确认，S7 bug 修复）。
@@ -974,7 +1095,7 @@ class SongBot:
                     return True
             return False
         except Exception as exc:  # noqa: BLE001 — 确认查询失败按未送达处理（保守）
-            logger.warning("图片送达确认查询失败（按未送达兜底）: %s", exc)
+            logger.info("图片送达确认查询失败（按未送达兜底，可能是断网）: %s", exc)
             return False
 
     def _default_sender(self, group_id: str, text: str, image_paths: list[Path]) -> bool:
@@ -1005,10 +1126,9 @@ class SongBot:
             ats=ats,
         )
         results = push(msg, config=self._notifier)
-        ok = any(r.ok for r in results)
-        if not ok:
-            logger.warning("发送失败（群 %s）: %s", group_id, [r.error for r in results])
-        return ok
+        # 不再在此告警：NapCat sendMsg 偶发「回执超时」假失败（消息实际已送达），
+        # 是否真失败由调用方 _full_flow/_send_list 查群历史后判定（2026-08-27 修复告警刷屏）。
+        return any(r.ok for r in results)
 
 
 # ---------------------------------------------------------------------------
@@ -1162,6 +1282,8 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     bot.start_song_index()                        # S8：加载缓存或后台全量构建歌曲反向索引
     bot.song_refresher = bot._song_refresher      # S9 update live 钩子：重建歌曲索引
+
+    warmup_browser()                              # 预热渲染 worker（worker 线程内启动浏览器，线程安全）
 
     receiver = EventReceiver(bot.handle, port=cfg.port)
     receiver.start()

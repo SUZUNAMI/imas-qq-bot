@@ -18,12 +18,18 @@
   td 单元格，不能误当日期场馆）；出演在 ``<div class="mx-3 my-2">出演:``。
   tracklist 有 ``<tr class="part-header"><th colspan="3">【第X幕 …】</th>`` 幕标题行（<3 个 td，
   跳过）与**无序号行**（td0 为空，no 回退为运行序号）。
+- D) 早期版式（fixtures/imas_db_mugenbeat_day1.html 等，2022 及更早，S11 新增）：
+  出演块为 ``<div class="section"><h2>出演</h2><ul>…``（无「出演:」前缀），演者 span 用
+  **类名式** ``<span class="idol_sc_unit02">アンティーカ</span>`` /
+  ``<span class="idol_sc_mano" title="櫻木真乃(CV:関根瞳)">関根瞳</span>``；
+  tracklist 演者单元格同样用 ``idol_*`` 类 span。颜色定义在 ``.idol_*{color:…}``
+  （idol_class_colors 表），名字取 title 去 ``(CV:…)``（角色名），单元名无 title 取 span 文本。
 
 通用识别规则（三版式统一）：
 - 日期场馆：取 ``<a>詳細</a>``（官方公式サイト链接，每页唯一、总在日期/场馆行）的 div/p 祖先，
   去掉 ``<a>`` 后取文本；无 ``詳細`` 链接时兜底取含「開演/開場」的**最短** div/p
   （最短防外层大容器误匹配）。
-- 出演者：首个文本以「出演」开头的 div 内全部 ``span.idol-name`` 文本。
+- 出演者：首个文本以「出演」开头的 div 内全部演者 span（``idol-name`` **或** ``idol_*``）。
 - 歌曲行：``table.tracklist > tbody > tr``；不足 3 个 td 的行跳过（幕标题行/坏行）；
   td0 空/非数字 → ``no`` 回退为运行序号（len+1）。
 - 歌名：td1 内 ``<a>`` 文本（有链接时）；否则去掉 ``badge``/``visually-hidden`` 后的文本。
@@ -35,6 +41,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import sys
 from typing import Optional
 from urllib.parse import urljoin
@@ -81,7 +88,7 @@ SELECTOR_TRACK_ROW = "tr"
 SELECTOR_TRACK_TD = "td"
 SELECTOR_BADGE = "small"                  # 品牌徽章（class 含 badge）
 SELECTOR_HIDDEN_SPAN = "span"             # ( ) 装饰（class 含 visually-hidden）
-SELECTOR_IDOL_NAME = "span"               # 演者（class 含 idol-name）
+SELECTOR_IDOL_NAME = "span"               # 演者（class 含 idol-name）；S11 起由 _is_idol_span 泛化（+ 早期 idol_*）
 
 DATE_KEYWORDS = ("開演", "開場")           # 日期/场馆行特征词
 PERFORMER_PREFIX = "出演"                 # 出演者块文本前缀
@@ -101,9 +108,9 @@ ATTR_DATA_NAMES = (
 )
 
 
-def _read_idol_color_tables() -> tuple[dict, dict, dict, dict, dict]:
-    """读 (brand_id_map, attr_colors, group_colors, brand_keys, character_colors)；
-    JSON 缺失/损坏回退空表（无应援色）。"""
+def _read_idol_color_tables() -> tuple[dict, dict, dict, dict, dict, dict]:
+    """读 (brand_id_map, attr_colors, group_colors, brand_keys, character_colors, idol_class_colors)；
+    JSON 缺失/损坏回退空表（无应援色）。S11：末位新增 idol_class_colors（早期 .idol_*{color}）。"""
     try:
         with open(SITE_COLORS_FILE, encoding="utf-8") as f:
             d = json.load(f)
@@ -113,15 +120,54 @@ def _read_idol_color_tables() -> tuple[dict, dict, dict, dict, dict]:
             d.get("group_colors") or {},
             d.get("brand_keys") or {},
             d.get("character_colors") or {},
+            d.get("idol_class_colors") or {},
         )
     except (OSError, ValueError):
-        return {}, {}, {}, {}, {}
+        return {}, {}, {}, {}, {}, {}
+
+
+def _is_idol_span(span) -> bool:
+    """演者 span 判定：近期 ``class="idol-name"`` **或** 早期 ``class="idol_*"``（S11 泛化）。"""
+    classes = span.get("class") or []
+    return "idol-name" in classes or any(c.startswith("idol_") for c in classes)
+
+
+def _idol_spans_of(el) -> list:
+    """el 内全部演者 span（idol-name / idol_*），按文档顺序。"""
+    return [s for s in el.find_all("span") if _is_idol_span(s)]
+
+
+def _legacy_idol_name(span) -> str:
+    """早期版式（idol_* 类）演者名提取：
+    title 去 ``(CV:…)`` 优先（角色名）；无 title 取 span 文本并去尾部 ``(…)``
+    （单元名如 ``idol_sc_unit02`` → アンティーカ 无 title，直接取文本）。"""
+    title = span.get("title")
+    if title:
+        title = title.strip()
+        m = re.search(r"\(CV:", title)
+        if m:
+            return title[: m.start()].strip()
+        return title
+    text = span.get_text(strip=True)
+    m = re.search(r"\([^)]*\)\s*$", text)
+    if m:
+        text = text[: m.start()].strip()
+    return text
+
+
+def _performer_name(span) -> str:
+    """演者显示名：近期 idol-name 取 span 文本（忠实原网页显示）；
+    早期 idol_* 按 title/文本规则提取（S11）。"""
+    if "idol-name" in (span.get("class") or []):
+        return span.get_text(strip=True)
+    return _legacy_idol_name(span)
 
 
 def _idol_color(span, tables) -> Optional[str]:
-    """span.idol-name 的应援色：character > group > attr > brand
-    （对应原网页 CSS 后定义覆盖：brand → attr → group → character 规则依次在后）。"""
-    brand_id_map, attr_colors, group_colors, brand_keys, character_colors = tables
+    """span 的应援色：近期 idol-name 走 character > group > attr > brand
+    （对应原网页 CSS 后定义覆盖：brand → attr → group → character 规则依次在后）；
+    早期 idol_* 类名走 ``idol_class_colors`` 文字色表（S11）。"""
+    brand_id_map, attr_colors, group_colors, brand_keys, character_colors, idol_class_colors = tables
     cid = span.get("data-character-id")
     if cid and cid in character_colors:
         return character_colors[cid]          # 角色个人应援色（大多数偶像）
@@ -140,6 +186,10 @@ def _idol_color(span, tables) -> Optional[str]:
         key = brand_id_map.get(bid)
         if key:
             return brand_keys.get(key)
+    # 早期版式（S11）：class 类名 → .idol_*{color} 文字色表；无匹配给 None（不崩）
+    for cls in span.get("class") or []:
+        if cls.startswith("idol_") and cls in idol_class_colors:
+            return idol_class_colors[cls]
     return None
 
 
@@ -176,12 +226,13 @@ def _find_date_venue(soup) -> str:
 
 
 def _find_performers(soup, tables) -> tuple[list[str], list[Optional[str]]]:
-    """出演者：首个文本以「出演」开头的 div 内全部 span.idol-name → (名字, 应援色)。"""
+    """出演者：首个文本以「出演」开头的 div 内全部演者 span（idol-name / 早期 idol_*，S11 泛化）
+    → (名字, 应援色)。"""
     for d in soup.find_all("div"):
         if d.get_text(" ", strip=True).startswith(PERFORMER_PREFIX):
-            spans = d.find_all(SELECTOR_IDOL_NAME, class_="idol-name")
+            spans = _idol_spans_of(d)
             return (
-                [s.get_text(strip=True) for s in spans],
+                [_performer_name(s) for s in spans],
                 [_idol_color(s, tables) for s in spans],
             )
     return [], []
@@ -214,11 +265,12 @@ def _parse_title_cell(td, base_url: str) -> tuple[str, Optional[str], Optional[s
 
 
 def _parse_performers_cell(td, tables) -> tuple[list[str], list[Optional[str]]]:
-    """td2（演者）-> (名字, 应援色)；无 idol-name span（如「全員」/「城主(穴沢裕介)」）取整格文本，色为 None。"""
-    spans = td.find_all(SELECTOR_IDOL_NAME, class_="idol-name")
+    """td2（演者）-> (名字, 应援色)；无演者 span（如「全員」/「城主(穴沢裕介)」）取整格文本，色为 None。
+    S11：早期 idol_* 类 span 同样识别（如 <span class="idol_sc_unit02">アンティーカ</span>）。"""
+    spans = _idol_spans_of(td)
     if spans:
         return (
-            [s.get_text(strip=True) for s in spans],
+            [_performer_name(s) for s in spans],
             [_idol_color(s, tables) for s in spans],
         )
     text = td.get_text(strip=True)
@@ -248,8 +300,9 @@ def parse_setlist_html(html: str, *, url: str = "", base_url: str = PAGE_BASE_UR
     :param html: 详情页 HTML 文本（UTF-8 解码后的 str）
     :param url: 详情页 URL（写入 Setlist.url，并作为相对链接的 urljoin 基准）
     :param base_url: url 为空时的兜底基准（目录语义，须以 / 结尾）
-    :param idol_colors: 应援色表 (brand_id_map, attr_colors, group_colors, brand_keys)；
-        默认 None 时读 data/songbot_site_colors.json（缺失则无应援色）
+    :param idol_colors: 应援色表 (brand_id_map, attr_colors, group_colors, brand_keys,
+        character_colors, idol_class_colors)；默认 None 时读 data/songbot_site_colors.json
+        （缺失则无应援色）
     """
     soup = BeautifulSoup(html, "html.parser")
     join_base = url or base_url

@@ -2,7 +2,7 @@
 
 > 所属项目：爱马仕官方新闻 QQ 转发机器人（同一仓库下的**子项目**）。
 > 目标：基于 https://imas-db.jp/song/event 的歌曲列表，实现群内 `@bot` 回复 Live 名字 → 给出子列表（day1/day2…）→ 用户再次确认名字 → 给出该公演的歌曲列表，并按**原网页格式渲染成图片**发送。
-> 创建：2026-08-26；状态：✅ **S1–S6 已完成（2026-08-27，全仓单测通过、live 群内两段交互验收通过）**，待执行 S7 收尾与合并；2026-08-27 追加命令式入口（`live`/`song`）+ S8 歌曲反查计划（见 `docs/S8-song-lookup-plan.md`）+ S9 绑定别名与手动刷新（`binding`/`unbind`/`bindings`/`update live`，见 `docs/S9-bindings-update-plan.md`）。**S9 已完成（2026-08-27：强制前缀命令 `live`/`binding`/`unbind`/`bindings`/`update live` + `s9_binding.py` + `refresh_all`，详见 S9 计划与工作日志）**；S8 并行线程执行中（`song` 命令未接入，S9 已预留 `COMMANDS` 与 `song_refresher` 接入点）。
+> 创建：2026-08-26；状态：✅ **S1–S9 + S7 收尾全部完成（2026-08-27，全仓单测通过、live 群内两段交互验收通过、合并回主仓库）**；2026-08-27 追加 S10（待实现）：列表图片渲染（`render_list`）+ @only 门控，见 `docs/S10-list-image-atbot-plan.md`；追加 S11（待实现）：早期演者颜色兼容修复，见 `docs/S11-legacy-color-fix-plan.md`。**S9 已完成（2026-08-27：强制前缀命令 `live`/`binding`/`unbind`/`bindings`/`update live` + `s9_binding.py` + `refresh_all`，详见 S9 计划与工作日志）**；S8 并行线程执行中（`song` 命令未接入，S9 已预留 `COMMANDS` 与 `song_refresher` 接入点）。
 >
 > **可执行施工图见 [`S1-S7-taskplan.md`](S1-S7-taskplan.md)**（S1–S7 逐步骤实现、选择器、单测要点、验收清单、产出文件）；本文档为总体计划与契约正文。
 
@@ -20,6 +20,7 @@
 | 时间筛选入口 | 「按年/月筛选 LIVE」：`2026年7月` / `2026-07` / `7月`（无年份默认最新年份）→ 两段式：列出该月 LIVE（序号+日期）→ 选序号/名字 → 出图（2026-08-27 拍板） |
 | 命令式入口 | 输入改为 `@bot live <Live名\|年月>` / `@bot song <歌名>`（**强制前缀**，无前缀回用法提示；`song` 见 S8 计划，2026-08-27 拍板） |
 | 绑定与刷新 | `binding <略缩> <event_name>`（唯一命中才绑）/ `unbind <略缩>` / `bindings` / `update live` 手动全量刷新（见 S9 计划，2026-08-27 拍板） |
+| 列表图片 + @only 门控 | 列表类回复渲染成图片（S4 `render_list`）；未 @bot 消息一律忽略（二次确认也要求 @bot）（见 S10 计划，2026-08-27 拍板） |
 
 ---
 
@@ -27,7 +28,7 @@
 
 - **输入**（命令式，强制前缀）：`@bot live <Live 名>`（日文/英文/缩写皆可）或 `@bot live <年/月>`（`2026年7月` / `2026-07` / `7月`，无年份默认最新年份）；`@bot song <歌名>` 反查该歌出现过的 LIVE（见 S8 计划）；`@bot binding <略缩> <event_name>` / `@bot unbind <略缩>` / `@bot bindings` / `@bot update live`（见 S9 计划）。
 - **处理**：`split_command` 分流命令 → `live` 走模糊匹配/时间筛选事件索引 → 返回子列表（多日）或候选 → 用户二次确认 → 抓详情页 → 渲染 setlist 图片；`song` 走歌曲反向索引（S8）。
-- **输出**：以**图片**形式发送该公演的「セットリスト」（No. / 楽曲 / 演者 表格，还原原网页版式）。
+- **输出**：以**图片**形式发送——公演的「セットリスト」（No. / 楽曲 / 演者 表格，还原原网页版式）；**列表类回复**（候选 / 子列表 / 时间筛选 / 歌曲出现 / 绑定）也渲染成图片（序号 + 日期），避免文本过长。
 - **非目标**：不做歌曲详情页、不做增量推送、不做多账号、不翻译歌词/歌名（专名保持原文）。
 
 ## 2. 现状调研结论（逆向，2026-08-26）
@@ -62,7 +63,8 @@ flowchart LR
 ```
 
 - 命令式输入（强制前缀）：`live <名/年月>` 走现有两段式（多日子列表 → 确认；单页直接渲染；时间查询列该月 LIVE 上限 10 条）；`song <歌名>` 走 S8 歌曲反查（列出现 LIVE → 选 → 出图）；`binding`/`unbind`/`bindings`/`update live` 为 S9 管理命令（直接回执，不走渲染流程）。
-- 会话状态：`(group_id, user_id) → 待确认事件`，默认 5 分钟超时失效。
+- **列表类回复渲染成图片**：候选 / 子列表 / 时间筛选 / 歌曲出现 / 绑定等「序号 + 名称 + 日期」列表统一走 `render_list`（S4 泛化）发图，图内附「回复序号」footer，避免长文本刷屏。
+- 会话状态：`(group_id, user_id) → 待确认事件`，默认 5 分钟超时失效；**二次确认同样要求 @bot，未 @ 的消息一律忽略**（2026-08-27 拍板）。
 
 ## 4. 目录结构
 
@@ -73,7 +75,7 @@ songbot/
   s1_fetch_events.py # 列表抓取+解析：/song/event → Event[]
   s2_fetch_setlist.py# 详情抓取+解析：xxx.html → Setlist
   s3_match.py        # split_command + 查询类型判别 + 模糊匹配 + 按年月筛选：live 输入 → 候选 Event[]
-  s4_render.py       # 无头浏览器截图：Setlist → PNG
+  s4_render.py       # 无头浏览器截图：Setlist/列表 → PNG（render_setlist + render_list）
   s5_receiver.py     # OneBot 事件接收（本地 HTTP）+ 会话状态
   s8_song_index.py   # 歌曲反向索引：构建/增量刷新/缓存 + match_songs（S8）
   s9_binding.py     # 绑定别名存储 + resolve_binding（S9）
@@ -135,7 +137,7 @@ docs/modules/
 | **S1 列表抓取+解析** | 抓 `/song/event`（UTF-8），BS4 解析出 `Event[]` | `scripts/probe_song_event.py` 打印 125 事件，多日事件 day 子项/日期/URL 正确 |
 | **S2 详情抓取+解析** | 抓公演 `.html`，解析 `h1`/日期场馆/出演者/`table.tracklist` → `Setlist` | ✅ 3 个真实 URL 输出结构化 setlist 正确（2026-08-27，40/40 单测） |
 | **S3 匹配+时间筛选** | 查询类型判别（时间/名称）；名称走归一化+模糊打分，时间走 `filter_by_time` 按年/月筛选；返回唯一命中或候选列表 | 用 IWSF2026 / 13thLIVE / シャニ / 学園 等样本验证；`2026年7月`/`7月` 时间筛选正确 |
-| **S4 图片渲染** | 无头浏览器（Edge）截图还原表格版式，长表分页 | ✅ 2026-08-27：三份 fixture 渲染 PNG 版式一致、徽章色保真、日文正常（程序化验证；产物 data/songbot_img/acceptance_20260827/） |
+| **S4 图片渲染** | 无头浏览器（Edge）截图还原表格版式，长表分页；**列表类回复也渲染成图片（`render_list`，S4 泛化）** | ✅ 2026-08-27：三份 fixture 渲染 PNG 版式一致、徽章色保真、日文正常（程序化验证；产物 data/songbot_img/acceptance_20260827/）；`render_list` 待实现 |
 | **S5 事件接收+会话** | 本地 HTTP 服务收 OneBot 群消息；会话状态（group+user → 待确认，超时失效） | ✅ 2026-08-27：模拟 POST 事件（array/string 双形态）被正确解析；会话 set/get/超时通过（34/34 单测 + `scripts/acceptance_s5.py` ALL PASS） |
 | **S6 主控串联+验收** | 串联 S1–S5；配置 NapCat `postUrls`；live 两段交互走通（含时间查询分支） | 测试群 @bot 完整走通 |
 | **S7 文档/单测/挂载** | 补单测、工作日志、`docs/index.md`、后台挂载脚本 | 全仓测试通过，可常驻 |
@@ -151,6 +153,7 @@ docs/modules/
 | 模糊匹配误命中 | 多候选时列候选让用户选，不静默猜 |
 | 长 setlist 超图片高度 | 分页/加高截图高度，Pillow 自动裁白边 |
 | 日期文本异常形态（无 `YYYY/MM`、`(DAY1夜・DAY2昼)` 等） | `parse_month` 防御：无匹配仅按年份筛选；跨月以起始月为准（fixtures 未发现真实跨月） |
+| 列表类回复渲染图片延迟 | 复用 S4 管线（必要时复用浏览器实例/截图会话）；列表短时可回退文本 |
 
 ## 7. 维护约定
 

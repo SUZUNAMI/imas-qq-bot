@@ -37,6 +37,8 @@ flowchart LR
   R["@bot update live"] --> F[重抓列表 → 重建事件+歌曲索引 → 回执]
 ```
 
+- 每轮交互都需 @bot（未 @ 忽略）；`bindings` 列表走 `render_list` 图片（S4 泛化）；`binding`/`unbind`/`update live` 回执为短文本。
+
 ## 3. 契约与存储
 
 - **无 dataclass 变更**；绑定值 = 序列化 `Event`（复用 `bot.py` 已有的 `_event_to_dict` / `_event_from_dict`）。
@@ -47,7 +49,7 @@ flowchart LR
 | 模块 | 职责 | 验收 |
 |---|---|---|
 | **S9.1 `s9_binding.py`** | `BindingStore`（线程安全：`set`/`get`/`remove`/`list` + JSON 持久化）+ `resolve_binding(query)`（精确 normalize 匹配） | set/get/remove/list 正确、持久化读回一致、并发安全 |
-| **S9.2 bot 集成** | `_first_stage` 加 `binding`/`unbind`/`bindings`/`update` 分支；`live` 解析先查绑定；`SongBot.refresh_all()`（`update live`）；**管理命令权限：`sender.role` ∈ `owner`/`administrator` 才放行，member 拒绝**（`s5_receiver` 解析 role） | 绑定后 `live <略缩>` 命中；`update live` 后索引刷新；member 用管理命令收到拒绝提示且无副作用 |
+| **S9.2 bot 集成** | `_first_stage` 加 `binding`/`unbind`/`bindings`/`update` 分支；`live` 解析先查绑定；`SongBot.refresh_all()`（`update live`）；**管理命令权限：`sender.role` ∈ `owner`/`administrator` 才放行，member 拒绝**（`s5_receiver` 解析 role）；`bindings` 列表走 `render_list` 图片 | 绑定后 `live <略缩>` 命中；`update live` 后索引刷新；member 用管理命令收到拒绝提示且无副作用 |
 
 ## 5. 风险与对策
 

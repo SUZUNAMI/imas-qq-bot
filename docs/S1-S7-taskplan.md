@@ -4,6 +4,8 @@
 > 含逐步骤实现细节、选择器、数据契约、单测要点、验收清单与产出文件。
 > 子任务完成前，本文件为唯一实施依据；契约改动必须回改本文档「契约」小节并同步 `S-songbot-plan.md`。
 > S8「歌曲反查 Live」为独立追加计划，见 `docs/S8-song-lookup-plan.md`（契约扩展 `Appearance`/`SongEntry`）。
+> S10「列表图片渲染 + @only 门控」为独立追加计划，见 `docs/S10-list-image-atbot-plan.md`。
+> S11「早期演者颜色兼容修复」为独立缺陷修复计划，见 `docs/S11-legacy-color-fix-plan.md`。
 
 ---
 
@@ -297,6 +299,11 @@ def match_events(query: str, events: list[Event]) -> list[Event]  # 按得分降
 
 入口：`render_setlist(setlist: Setlist, *, out_dir=None) -> list[Path]`（返回一张或多张 PNG 路径，长表分页）。
 
+**泛化（2026-08-27 追加，列表类回复渲染成图片）**：
+- 抽出共享管线 `render_html_pages(pages_html: list[str], out_dir) -> list[Path]`（截图 + 裁白边 + 分页核心，接受预分页的 HTML 列表）；`render_setlist` 改为调用它（行为不变）。
+- 新增 `build_list_html(title: str, rows: list[tuple[str, str]], *, hint: str = "回复序号") -> str`：列表样式自包含 HTML（标题 + 序号行「主文本 + 副文本（日期/品牌）」+ footer 提示）。
+- 新增 `render_list(title: str, rows: list[tuple[str, str]], *, out_dir=None, hint="回复序号") -> list[Path]`：`build_list_html` → 分页 → `render_html_pages`；`rows` 每项 = (主文本, 副文本)，序号自动 1 起。
+
 1. 用模板组装一个**自包含 HTML**（内联 CSS 复刻 `table.tracklist` 样式：表头 No./楽曲/演者、斑马纹、品牌徽章色块、标题/日期/场馆头）。徽章色可用站点已有的 `bg-imas-brand-*` 类名近似色值（硬编码色表）。
 2. 浏览器加载该 HTML（`data:` URL 或 `file://` 临时文件）→ 等待渲染 → 定位表格容器元素。
 3. **元素级截图**：Playwright `locator(...).screenshot()`（精确裁剪，无多余边）；兜底 CLI 则整页截图后用 Pillow `Image.getbbox()` 裁白边。
@@ -307,6 +314,7 @@ def match_events(query: str, events: list[Event]) -> list[Event]  # 按得分降
 
 **单测/验收要点**
 - 生成 PNG 非空、尺寸 > 0；长表（构造 50 行）返回 > 1 张。
+- `render_list`（构造 20 行）返回非空 PNG、序号 1..N、含 footer 提示；超长列表分页。
 - 日文无缺字（人工目检截图；自动化断言渲染不抛异常）。
 
 **验收清单**
@@ -363,20 +371,20 @@ class SessionStore:                                    # 线程安全，TTL 5 �
 
 1. 启动：读 `config.yaml`（`songbot:` 段：监听端口、TTL、事件索引缓存、Edge 路径等）→ `fetch_events()` 构建索引（进程内缓存 + 可选落盘 JSON）→ 启动 HTTP 接收服务。
 2. 处理链（回调内）：
-   - 事件 `at_bot` 且正文非空 → `split_command(正文)` 分流：
+   - 未 `at_bot` → 一律忽略（**不**做二次确认；会话确认也要求 @bot，2026-08-27 拍板）。
+   - 事件 `at_bot` 且正文非空 → 先尝试会话二次确认（`_try_confirm`，仅 @ 了才算）；无法确认则 `split_command(正文)` 分流：
      - 无前缀/未知命令 → 回用法提示（强制前缀：`live` / `song` / `binding` / `unbind` / `bindings` / `update live`）。
      - **live** → `classify_query(rest)`：
-       - **time** → `filter_by_time(索引, year, month)`：回复该年/月 LIVE 列表（序号 + 日期 + 多日子项），`SessionStore.set` 记住候选，提示「回复序号或 LIVE 名」。
+       - **time** → `filter_by_time(索引, year, month)`：`render_list` 图片列出该年/月 LIVE（序号 + 日期），`SessionStore.set` 记候选。
        - **name** → `match_events(rest)`：
-         - 命中唯一**多日**事件 → 回复「事件名 + 子列表（DAY1/DAY2… + 日期）」，`SessionStore.set` 记住该事件，提示「回复 DAY1 或公演名」。
+         - 命中唯一**多日**事件 → `render_list` 图片列子列表（DAY1/DAY2… + 日期），`SessionStore.set` 记事件。
          - 命中唯一**单页**事件 → 直接 `fetch_setlist` + `render_setlist` + 发图。
-         - 多候选 → 列出候选（含序号），`SessionStore.set` 记住候选列表。
+         - 多候选 → `render_list` 图片列候选（含序号），`SessionStore.set` 记候选列表。
          - 无命中 → 回复未找到 + 用法提示。
-     - **song** → `match_songs(rest, 歌曲索引)`（S8）：唯一命中列出现 LIVE（序号+日期）→ 选序号 → `_full_flow` 出图；多候选先选歌（见 S8 计划 §3）。
+     - **song** → `match_songs(rest, 歌曲索引)`（S8）：唯一命中 `render_list` 列出现 LIVE（序号+日期）→ 选序号 → `_full_flow` 出图；多候选先选歌（见 S8 计划 §3）。
      - **binding** → 解析 rest 为 `<略缩> <event_name>`：`match_events(event_name)` 唯一命中 → `BindingStore.set` 回执；0/多命中 → 提示更精确（见 S9 计划）。
-     - **unbind** → `BindingStore.remove(略缩)` 回执；**bindings** → 列出全部绑定。
+     - **unbind** → `BindingStore.remove(略缩)` 回执；**bindings** → 列出全部绑定（列表走 `render_list`）。
      - **update live** → `refresh_all()`：重抓列表 → 重建事件索引 + 歌曲反向索引 → 回执「N 事件 / M 歌曲」。
-   - 事件 `at_bot` 为假但存在会话（同一 group+user）→ 视为二次确认：正文解析为 `DAY1`/`DAY2`/序号/子标题 → `match_sub` 定位 → `fetch_setlist` + `render_setlist` + 发图 → `SessionStore.clear`。
 3. 发送图片：复用 `ref/m6_notifier.py` 的 OneBot 发送逻辑（`send_group_msg`），图片用 `[CQ:image,file=base64://<png_base64>]`（最通用，NapCat 支持）。
 4. 日志：沿用主项目日志习惯（UTF-8、按天轮转、异常不退出）。
 

@@ -1,7 +1,8 @@
 # songbot 群内使用说明：Q 群输入格式
 
 > 适用：歌曲列表 bot（songbot）部署后，群成员在 QQ 群内的输入方式。
-> 依据：`docs/S9-bindings-update-plan.md`（命令前缀 + 绑定 + 手动刷新，2026-08-27 已实现并单测/离线全链路验收）；
+> 依据：`docs/S10-list-image-atbot-plan.md`（**S10 列表图片渲染 + @only 门控，2026-08-27 已实现并单测/离线全链路验收**）；
+> `docs/S9-bindings-update-plan.md`（命令前缀 + 绑定 + 手动刷新，2026-08-27 已实现并单测/离线全链路验收）；
 > `docs/S8-song-lookup-plan.md`（`song` 歌曲反查 LIVE，2026-08-27 已实现并验收）；
 > `docs/modules/S7-delivery-plan.md`（S7 收尾：启动/停止状态通知 + 后台挂载脚本，2026-08-27）。
 > live 测试约定：QQ 群消息测试默认只发**测试群（450599137，原 666 群 827029417 已失效）**；主群测试需用户明确允许。
@@ -13,14 +14,17 @@
 **命令前缀（强制）**：`@bot live <LIVE 名 / 年月>`，两段交互：
 
 ```
-第一段：@bot live <LIVE 名 / 时间>  →  bot 回复子列表 / 候选列表 / 图片
-第二段：回复 DAY1 / 序号 / 公演名   →  bot 发送对应公演的歌曲列表图片
+第一段：@bot live <LIVE 名 / 时间>  →  bot 回复子列表 / 候选列表 / 歌曲列表图片
+第二段：@bot DAY1 / 序号 / 公演名   →  bot 发送对应公演的歌曲列表图片
 ```
 
-> 第二段**不需要再 @bot**（同一群、同一人 5 分钟内有效）；第二段必须 @bot 时也可（会优先按确认解析）。
+> **每轮回复都需 @bot**（S10 @only 门控，2026-08-27 起）：二次确认（序号 / DAY1 / 歌名）与
+> `quit` 取消**也必须 @bot**——未 @bot 的消息一律忽略（含带会话的普通闲聊）。
+> **列表回复均为图片**（S10）：候选 / 子列表 / 时间筛选 / 歌曲出现 / bindings 等列表以
+> **图片**发送（长列表自动分页多图），图内序号即会话确认序号，图片 footer 统一「回复序号」。
 > **没有命令前缀**（如直接 `@bot IWSF2026`）会收到用法提示——请改用 `@bot live IWSF2026`。
 > **回复按用户归属**：bot 的所有回复开头都会 @ 发起查询的用户（群内多人并发互不混淆）。
-> **回复 `quit` 可随时取消**当前等待（清会话，不再等二次确认；无 @ 且无进行中查询时忽略）。
+> **回复 `@bot quit` 可随时取消**当前等待（清会话，不再等二次确认）。
 
 ---
 
@@ -31,7 +35,7 @@
 | `live <LIVE 名>` | 按名称查 LIVE（缩写/日文/英文均可） | 全员 | `@bot live IWSF2026` |
 | `live <年月>` | 按年/月查 LIVE | 全员 | `@bot live 2026年7月` |
 | `song <歌名>` | 反查该歌出现过的所有 LIVE（序号+日期），选序号出该 LIVE 歌曲列表图 | 全员 | `@bot song Dance in the Light` |
-| `quit`（第二段回复） | **取消当前等待**（清会话，不再等二次确认） | 全员 | `quit` / `QUIT` |
+| `quit`（第二段回复） | **取消当前等待**（清会话，不再等二次确认；**需 @bot**，S10） | 全员 | `@bot quit` / `@bot QUIT` |
 | `binding <略缩> <事件名>` | 给 LIVE 设置自定义略缩（**唯一命中才绑**） | **仅群主/管理员** | `@bot binding iwsf IDOL WORLD SUPER FESTIVAL 2026` |
 | `unbind <略缩>` | 删除略缩绑定 | **仅群主/管理员** | `@bot unbind iwsf` |
 | `bindings` | 列出全部绑定 | **仅群主/管理员** | `@bot bindings` |
@@ -56,14 +60,17 @@
 | `@bot live 2026-07` / `@bot live 2026/07` / `@bot live 2026.07` | 同上（分隔符 - / . 均可） |
 | `@bot live ２０２６年７月` | 全角数字/文字也可识别 |
 
-回复形式：按日期列出序号列表（单次最多 10 场，超出提示「还有 N 场…」），例如：
+回复形式：**图片**（S10：候选/时间筛选列表一律发图，长列表自动分页多图；图内
+「序号 + 事件名 + 日期/子项」+ footer「回复序号」），例如图内内容：
 
 ```
-2026年7月 的 LIVE（2 场）：
-1. 2026/07/24(金)・25(土)・26(日)  IDOL WORLD SUPER FESTIVAL 2026（DAY1/DAY2/DAY3）
-2. 2026/07/04(土)・05(日)  CINDERELLA GIRLS MUSICAL DERE of the DEAD
-回复序号或 LIVE 名继续
+2026年7月 的 LIVE（2 场）
+1.  IDOL WORLD SUPER FESTIVAL 2026        多日：第一公演 -YAKUDOU-(2026/07/24(金))、…
+2.  CINDERELLA GIRLS MUSICAL DERE of the DEAD   2026/07/04(土)・05(日)
+回复序号
 ```
+
+> 时间列表**全部事件都进图**（不再截断为 10 条）：图内序号与会话确认序号一致，直接 @bot 回复序号即可。
 
 ### 3.2 按名称查询（查某个具体 LIVE）
 
@@ -79,27 +86,27 @@
 
 三种回复：
 
-1. **唯一多日 LIVE**（如 `live IWSF2026`）→ 回复子公演列表，等你选 DAY：
+1. **唯一多日 LIVE**（如 `live IWSF2026`）→ 回复子公演列表**图片**，等你选 DAY：
    ```
    IDOL WORLD SUPER FESTIVAL 2026
-   1. 第一公演 -YAKUDOU-  2026/07/24(金)
-   2. 第二公演 -ZESSYOU-  2026/07/25(土)
-   3. 第三公演 -KYOUMEI-  2026/07/26(日)
-   回复 DAY1 或公演名
+   1.  第一公演 -YAKUDOU-    2026/07/24(金)
+   2.  第二公演 -ZESSYOU-    2026/07/25(土)
+   3.  第三公演 -KYOUMEI-    2026/07/26(日)
+   回复序号
    ```
 2. **唯一单页 LIVE** → 直接发送该公演的歌曲列表图片（不用第二段）。
-3. **多个候选** → 回复带序号的候选列表，等你回复序号或 LIVE 名。
+3. **多个候选** → 回复带序号的候选列表**图片**，等你 @bot 回复序号或 LIVE 名。
 4. **无命中** → 回复未找到 + 用法提示。
 
 ---
 
 ## 3.5 歌曲反查 LIVE（S8）：`@bot song <歌名>`
 
-反查「某首歌在哪些 LIVE 演唱过」，两段交互：
+反查「某首歌在哪些 LIVE 演唱过」，两段交互（**每轮都需 @bot**，S10）：
 
 ```
-第一段：@bot song <歌名>      →  bot 回复该歌出现过的 LIVE 列表（序号 + 事件名 + 子公演 + 日期）
-第二段：回复序号              →  bot 发送对应公演的歌曲列表图片
+第一段：@bot song <歌名>      →  bot 回复该歌出现过的 LIVE 列表**图片**（序号 + 事件名 + 子公演 + 日期）
+第二段：@bot 序号             →  bot 发送对应公演的歌曲列表图片
 ```
 
 示例：
@@ -110,18 +117,18 @@
 | `@bot song Marionetteは眠らない` | 日文歌名 |
 | `@bot song ダンスダンスダンス` | 全角/大小写/分隔符自动归一化 |
 
-回复形式：
+回复形式（图片内容）：
 
 ```
-「Dance in the Light」出现在 2 场 LIVE：
-1. THE IDOLM@STER 20th Anniversary MORE RE@LITY LIVE IDOL WORLD SUPER FESTIVAL 2026（第一公演 -YAKUDOU-） 2026/07/24(金)
-2. THE IDOLM@STER MILLION LIVE! 13thLIVE（DAY1 全力援走） 2026/05/05(火祝)
-回复序号查看该 LIVE 的歌曲列表
+「Dance in the Light」出现在 2 场 LIVE
+1.  …IDOL WORLD SUPER FESTIVAL 2026（第一公演 -YAKUDOU-）  2026/07/24(金)
+2.  …MILLION LIVE! 13thLIVE（DAY1 全力援走）  2026/05/05(火祝)
+回复序号
 ```
 
 要点：
 
-- **歌名多义/重名** → 先列出候选歌曲（序号 + 歌名 + 出现 LIVE 数），选歌后再列 LIVE，不静默猜；
+- **歌名多义/重名** → 先列出候选歌曲**图片**（序号 + 歌名 + 出现 LIVE 数），选歌后再列 LIVE，不静默猜；
 - 同一歌在同一场 LIVE 多次演唱只列一次；
 - 索引由 bot 启动时构建/加载缓存（首次约需数分钟，期间回「歌曲索引构建中…」），
   **每次 `song` 查询前自动增量刷新**（新 LIVE 自动并入，只抓新增）；`update live` 也可手动全量重建；
@@ -129,17 +136,17 @@
 
 ---
 
-## 4. 第二段：确认回复（无需 @）
+## 4. 第二段：确认回复（**需 @bot**，S10）
 
-针对上一轮 bot 给的列表，回复以下任一种：
+针对上一轮 bot 给的列表（图片），**@bot** 回复以下任一种（未 @bot 的消息一律忽略）：
 
 | 输入 | 效果 |
 |---|---|
-| `DAY1` / `day1` | 选第 1 个子公演（DAY2、DAY3…同理） |
-| `1` / `2` | 按序号选候选 / 子公演 |
-| `全力援走` | 子公演名（全名、简名均可） |
-| `YAKUDOU` | 子公演名关键词（IWSF 的第一公演） |
-| `quit` / `QUIT` | **取消当前等待**（清会话，不再等二次确认；无 @ 且无进行中查询时忽略） |
+| `@bot DAY1` / `@bot day1` | 选第 1 个子公演（DAY2、DAY3…同理） |
+| `@bot 1` / `@bot 2` | 按图内序号选候选 / 子公演 |
+| `@bot 全力援走` | 子公演名（全名、简名均可） |
+| `@bot YAKUDOU` | 子公演名关键词（IWSF 的第一公演） |
+| `@bot quit` / `@bot QUIT` | **取消当前等待**（清会话，不再等二次确认） |
 
 → bot 抓取该公演详情并**发送歌曲列表图片**（标题 / 日期场馆 / 曲目编号+歌名+演者 / 品牌徽章 / 应援色；长表自动分页多图；图片消息与全部文本回复均 **@ 发起用户**，按用户归属）。
 
@@ -153,8 +160,8 @@
 @bot binding iwsf IDOL WORLD SUPER FESTIVAL 2026
 bot:  已绑定：iwsf → THE IDOLM@STER 20th Anniversary MORE RE@LITY LIVE IDOL WORLD SUPER FESTIVAL 2026（live iwsf 可直接查询）
 
-@bot live iwsf          → 直接出该 LIVE 的子列表/图片（绑定对全体成员生效）
-@bot bindings           → 列出全部绑定
+@bot live iwsf          → 直接出该 LIVE 的子列表图片/歌曲列表图片（绑定对全体成员生效）
+@bot bindings           → 全部绑定列表**图片**（略缩 + 事件名，图内 footer「回复序号」）
 @bot unbind iwsf        → 删除该绑定
 ```
 
@@ -220,52 +227,46 @@ bot:  已刷新：125 事件
 | 情况 | 行为 |
 |---|---|
 | 无命令前缀（如直接 `@bot IWSF2026`） | 回用法提示（强制前缀，S9 起） |
+| **未 @bot 的消息（S10 @only 门控）** | **一律忽略**（含二次确认 / `quit` / 带会话的闲聊——每轮回复都需 @bot） |
 | 普通成员使用管理命令（binding/unbind/bindings/update live） | 回「该命令仅群主/管理员可用」，命令不执行 |
 | 歌曲索引未就绪（首次构建中） | `song` 回「歌曲索引构建中…」，稍后再试 |
 | 品牌名查询（如 `ミリオン`、`SideM`） | 不命中（候选文本不含品牌徽章名） |
 | `2026年7月14日`（带「日」的精确日期） | 按名称查询处理，可能未找到（不支持日粒度） |
 | 拼写错得较多（如 `13thLIVE` vs `11thLIVE`） | 不强行匹配，返回未找到（短查询有防误配；超长全名可能近匹配，绑定事件名请用唯一短名） |
 | 会话有效期 | 5 分钟；超时后需重新 `@bot` 发起 |
-| 单次回复上限 | 时间列表/候选最多 10 条，超出提示「还有 N 场…」 |
+| 单次回复上限 | 列表类一律**图片**发送（S10）：全部条目进图、长列表自动分页多图，不再按 10 条截断 |
+| 列表图片渲染/发送失败 | 回退**纯文本列表**（`format_*` 产物，含确认提示），功能不中断 |
 
 ---
 
-## 9. 典型对话示例（测试群）
+## 9. 典型对话示例（测试群，S10 起每轮都 @bot）
 
 ```
 你:   @bot live IWSF2026
-bot:  IDOL WORLD SUPER FESTIVAL 2026
-      1. 第一公演 -YAKUDOU-  2026/07/24(金)
-      2. 第二公演 -ZESSYOU-  2026/07/25(土)
-      3. 第三公演 -KYOUMEI-  2026/07/26(日)
-      回复 DAY1 或公演名
-你:   DAY1
+bot:  [图片] IDOL WORLD SUPER FESTIVAL 2026（子公演列表，footer「回复序号」）
+你:   @bot 1
 bot:  [图片]（IDOL WORLD SUPER FESTIVAL 2026 -YAKUDOU- [DAY1] 21 曲，标题/日期/出演/曲目均在图内）
 ```
 
 ```
 你:   @bot live 2026年7月
-bot:  2026年7月 的 LIVE（2 场）：
-      1. …IDOL WORLD SUPER FESTIVAL 2026
-      2. …CINDERELLA GIRLS MUSICAL DERE of the DEAD
-      回复序号或 LIVE 名继续
-你:   1
-bot:  （进入 IWSF2026 子列表，同上两段）
+bot:  [图片] 2026年7月 的 LIVE（2 场）（IWSF 2026 / DERE of the DEAD，footer「回复序号」）
+你:   @bot 1
+bot:  [图片] IWSF2026 子公演列表
+你:   @bot 1
+bot:  [图片]（IWSF 2026 第一公演的歌曲列表）
 ```
 
 ```
 你:   @bot binding iwsf IDOL WORLD SUPER FESTIVAL 2026
 bot:  已绑定：iwsf → …IDOL WORLD SUPER FESTIVAL 2026（live iwsf 可直接查询）
 你:   @bot live iwsf
-bot:  （直接出 IWSF2026 子列表）
+bot:  [图片] IWSF2026 子公演列表
 ```
 
 ```
 你:   @bot song Dance in the Light
-bot:  「Dance in the Light」出现在 2 场 LIVE：
-      1. …IDOL WORLD SUPER FESTIVAL 2026（第一公演 -YAKUDOU-） 2026/07/24(金)
-      2. …MILLION LIVE! 13thLIVE（DAY1 全力援走） 2026/05/05(火祝)
-      回复序号查看该 LIVE 的歌曲列表
-你:   1
+bot:  [图片] 「Dance in the Light」出现在 2 场 LIVE（IWSF 2026 / 13thLIVE，footer「回复序号」）
+你:   @bot 1
 bot:  [图片]（IWSF 2026 第一公演的歌曲列表）
 ```

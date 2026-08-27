@@ -4,15 +4,19 @@
 - 纯函数（模板/分页/裁边/品牌色）全离线；
 - 渲染用例用 mock Setlist 断言 PNG 生成 + 尺寸 + 分页张数，浏览器（Edge/playwright）
   不可用时自动 skip（验收要求人工目检日文，自动化只断言渲染不抛异常、输出非空）。
+- S10（2026-08-27）：新增 ``build_list_html`` / ``render_list`` / ``render_html_pages``
+  用例（序号/footer/分页/空行），列表类与 setlist 共用共享渲染管线。
 
 运行（本机无 pytest，pip 被拦截，用标准库 unittest）：
     python -m unittest tests.test_s4_render -v
 """
 
 import os
+import re
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 # 路径引导：仓库根加入 sys.path，使 `import songbot` 可用
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -25,9 +29,13 @@ from songbot.s4_render import (  # noqa: E402
     DEFAULT_BRAND_COLOR,
     MAX_PAGE_HEIGHT,
     build_html,
+    build_list_html,
+    render_html_pages,
+    render_list,
     render_setlist,
     _brand_color,
     _chunk_tracks,
+    _content_hash,
     _crop_white,
     _edge_path,
 )
@@ -212,6 +220,128 @@ class RenderSetlistTest(unittest.TestCase):
             paths = render_setlist(_make_setlist(3), out_dir=sub)
             self.assertTrue(os.path.isdir(sub))
             self.assertTrue(paths[0].exists())
+
+
+class BuildListHtmlTest(unittest.TestCase):
+    """S10 列表模板组装（纯函数，离线）。"""
+
+    def _rows(self, n: int = 3) -> list[tuple[str, str]]:
+        return [(f"イベント{i}", f"2026/0{i}/01") for i in range(1, n + 1)]
+
+    def test_structure(self):
+        html = build_list_html("2026年7月 的 LIVE（共 2 场）",
+                               [("IDOL WORLD SUPER FESTIVAL 2026", "多日：DAY1(2026/07/24(金))"),
+                                ("DERE of the DEAD", "2026/07/04(土)・05(日)")])
+        for needle in ("2026年7月 的 LIVE", "IDOL WORLD SUPER FESTIVAL 2026",
+                       "DERE of the DEAD", "多日：DAY1", "回复序号"):
+            self.assertIn(needle, html, f"缺少 {needle!r}")
+        self.assertEqual(html.count('class="list-row"'), 2)
+
+    def test_numbering_auto(self):
+        html = build_list_html("标题", [("A", "a"), ("B", "b"), ("C", "c")])
+        for n in ("1.", "2.", "3."):
+            self.assertIn(n, html)
+        self.assertNotIn("0.", html)
+
+    def test_escape(self):
+        html = build_list_html("标<题> & 更多", [("行<&>", "副<&>")])
+        self.assertIn("&lt;", html)
+        self.assertNotIn("行<&>", html)
+
+    def test_empty_rows(self):
+        html = build_list_html("空列表", [])
+        self.assertIn("空列表", html)
+        self.assertNotIn('class="list-row"', html)   # CSS 里的 .list-row 规则不算行
+        self.assertIn("回复序号", html)          # footer 仍渲染
+
+    def test_custom_hint(self):
+        html = build_list_html("标题", [("A", "")], hint="回复序号或 LIVE 名")
+        self.assertIn("回复序号或 LIVE 名", html)
+        self.assertNotIn(">回复序号<", html)
+
+    def test_no_sub_omits_span(self):
+        html = build_list_html("标题", [("A", "")])
+        self.assertNotIn("class=\"sub\"", html)
+
+
+class RenderListTest(unittest.TestCase):
+    """S10 列表渲染（纯分页逻辑离线；真实浏览器渲染可用时跑 PNG 用例）。"""
+
+    def test_empty_rows_returns_empty(self):
+        self.assertEqual(render_list("空", []), [])
+
+    def test_paginate_long_rows(self):
+        """分页（显式传 measured_height，离线确定性；量高路径由浏览器用例覆盖）。"""
+        rows = [(f"行{i}", f"2026/0{i % 9 + 1}/01") for i in range(1, 300)]
+        pages = s4_render._build_list_pages("长列表", rows, hint="回复序号", measured_height=5000)
+        html_pages, heights = pages
+        self.assertGreater(len(html_pages), 1)
+        self.assertEqual(len(html_pages), len(heights))
+        total = sum(html.count('class="list-row"') for html in html_pages)
+        self.assertEqual(total, 299)
+        # 每页都不超过估算阈值（估算行高 * 行数 + 头部）
+        for html, h in zip(html_pages, heights):
+            n = html.count('class="list-row"')
+            self.assertLessEqual(h, s4_render.HEADER_HEIGHT_EST
+                                 + (n + 1) * s4_render.ROW_HEIGHT_EST)
+
+    def test_measure_fallback_estimates_when_unavailable(self):
+        """量高不可用时（playwright 失败）回退估算行高（不抛异常，仍分页出页）。"""
+        rows = [(f"行{i}", "") for i in range(1, 30)]
+        with mock.patch.object(s4_render, "_measure_html_height", return_value=None):
+            pages, heights = s4_render._build_list_pages("回退列表", rows, hint="回复序号")
+        self.assertEqual(len(pages), 1)                  # 29 行估算 < 阈值 -> 单页
+        self.assertEqual(heights[0], s4_render.HEADER_HEIGHT_EST + 29 * s4_render.ROW_HEIGHT_EST)
+
+    def test_content_hash_differs(self):
+        self.assertNotEqual(_content_hash(["a", "b"]), _content_hash(["a", "c"]))
+        self.assertEqual(_content_hash(["x", "y"]), _content_hash(["x", "y"]))
+        self.assertEqual(len(_content_hash(["x"])), 6)
+
+    def test_render_html_pages_empty(self):
+        """共享管线：空页面列表直接返回 []（不启动浏览器）。"""
+        with tempfile.TemporaryDirectory() as td:
+            self.assertEqual(render_html_pages([], td), [])
+
+
+@unittest.skipUnless(_browser_available(), "Edge/playwright 不可用，跳过渲染用例")
+class RenderListBrowserTest(unittest.TestCase):
+    """S10 真实渲染：列表 PNG 非空、长列表分页、文件名带标题 slug + 内容哈希。"""
+
+    def test_small_list_single_png(self):
+        with tempfile.TemporaryDirectory() as td:
+            paths = render_list("候補リスト", [("LIVE A", "2026/07/24(金)"),
+                                               ("LIVE B", "2026/07/25(土)")], out_dir=td)
+            self.assertEqual(len(paths), 1)
+            self.assertTrue(paths[0].exists())
+            self.assertGreater(paths[0].stat().st_size, 0)
+            self.assertRegex(paths[0].name, r"^候補リスト_.+_01\.png$")  # 标题 slug + 内容哈希
+
+    def test_long_list_multiple_pages(self):
+        rows = [(f"LIVE {i}", f"2026/0{i % 9 + 1}/01") for i in range(1, 220)]
+        with tempfile.TemporaryDirectory() as td:
+            paths = render_list("長いリスト", rows, out_dir=td)
+            self.assertGreater(len(paths), 1)
+            for p in paths:
+                self.assertGreater(p.stat().st_size, 0)
+
+    def test_out_dir_created(self):
+        with tempfile.TemporaryDirectory() as td:
+            sub = os.path.join(td, "x", "y")
+            paths = render_list("テスト", [("A", "")], out_dir=sub)
+            self.assertTrue(os.path.isdir(sub))
+            self.assertTrue(paths[0].exists())
+
+    def test_png_nonblank(self):
+        with tempfile.TemporaryDirectory() as td:
+            paths = render_list("リスト", [(f"行{i}", "") for i in range(1, 30)], out_dir=td)
+            if s4_render.Image is not None:
+                from PIL import Image as PILImage
+
+                with PILImage.open(paths[0]) as img:
+                    gray = img.convert("L")
+                    nonwhite = sum(1 for px in gray.getdata() if px < 240)
+                    self.assertGreater(nonwhite, 200)
 
 
 if __name__ == "__main__":

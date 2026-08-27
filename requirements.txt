@@ -1,0 +1,6 @@
+# M1 列表抓取（Fetcher）运行依赖
+# M4 翻译（Translator）运行依赖
+# 服务器/正式环境用 pip 安装：pip install -r requirements.txt
+# 本机沙箱因 pip 被拦截，依赖已 vendor 化到 vendor/（见 scripts/fetch_vendor_deps.py）
+httpx>=0.28
+python-dotenv>=1.0

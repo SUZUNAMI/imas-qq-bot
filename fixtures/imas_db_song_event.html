@@ -1,0 +1,1086 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ライブイベント関連情報 - 楽曲データ - アイマスDB</title>
+<meta name="description" lang="ja" content="THE IDOLM@STER (アイドルマスター) のライブイベントの記録。セットリストなど。">
+<meta name="viewport" content="width=device-width,shrink-to-fit=no">
+<meta name="format-detection" content="telephone=no,address=no">
+<link rel="stylesheet" type="text/css" href="/css/maruamyu.min.css?v=20260221">
+<link rel="stylesheet" type="text/css" href="/css/imas.min.css?v=20260516">
+<script type="text/javascript" defer src="/js/jquery-3.7.1.min.js"></script>
+<script type="text/javascript" defer src="/js/vue-3.5.34.min.js"></script>
+<script type="text/javascript" defer src="/js/env.js?v=20260510"></script>
+<script type="text/javascript" defer src="/js/maruamyu.min.js?v=20260221"></script>
+<script type="text/javascript" defer src="/js/maruamyu-accounts.min.js?v=20211121"></script>
+<script type="text/javascript" defer src="/js/imas.min.js?v=20260221"></script>
+<link rel="icon" type="image/vnd.microsoft.icon" href="/favicon.ico">
+<link rel="apple-touch-icon" type="image/png" href="/apple-touch-icon.png">
+<link rel="stylesheet" type="text/css" href="/css/collaboration-colors.min.css?v=20260228">
+<script type="text/javascript" defer src="./index.js?v=20260516"></script>
+</head>
+<body>
+
+<header id="maruamyu-header">
+<nav class="navbar navbar-static-top navbar-expand navbar-dark navbar-maruamyu">
+  <div class="navbar-brand"><a href="/" class="link_favicon favicon_imas" title="「THE IDOLM@STER データベース」のトップページへ">アイマスDB</a></div>
+</nav>
+<nav id="maruamyu-user-auth-status" class="navbar navbar-expand-sm maruamyu-user-auth-status" v-cloak>
+  <template v-if="onload">
+    <template v-if="user">
+      <div class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#maruamyu-user-auth-status-menu" aria-expanded="false">
+        <b class="twtr_name favicon favicon_twitter">@{{ user.screen_name }}</b>さん <span class="dropdown-toggle"></span>
+      </div>
+      <div class="collapse navbar-collapse" id="maruamyu-user-auth-status-menu">
+        <ul class="navbar-nav">
+          <li class="nav-item"><span class="navbar-text"><b class="twtr_name favicon favicon_twitter">@{{ user.screen_name }}</b>でログイン中</span></li>
+          <li class="nav-item"><a class="nav-link" v-bind:href="signOutUrl" onclick="return confirm('ログアウトしてもよいですか？');">ログアウト</a></li>
+        </ul>
+      </div>
+    </template>
+    <template v-else>
+      <ul class="navbar-nav">
+        <li class="nav-item d-none d-sm-flex"><a class="nav-link" v-bind:href="signInUrl"><span class="favicon favicon_twitter">X(Twitter)アカウントでログイン(Cookieの保存に同意する)</span></a></li>
+        <li class="nav-item d-flex d-sm-none"><a class="nav-link" v-bind:href="signInUrl"><span class="favicon favicon_twitter">ログイン(Cookieの保存に同意)</span></a></li>
+      </ul>
+    </template>
+  </template>
+  <div v-else>
+    <ul class="navbar-nav">
+      <li class="nav-item"><a class="nav-link" href="/login">ログイン状態の確認</a></li>
+    </ul>
+  </div>
+</nav>
+
+<div class="container-fluid">
+<h1 id="page_title">ライブイベント関連情報</h1>
+<nav aria-label="breadcrumb"><ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="/" title="「THE IDOLM@STER データベース」のトップページ">トップ</a></li>
+<li class="breadcrumb-item"><a href="../">楽曲・CDデータ</a></li>
+<li class="breadcrumb-item active" aria-current="page"><em>ライブイベント</em></li>
+</ol></nav>
+</div>
+</header>
+
+<hr>
+
+<main class="container-fluid">
+
+<!--
+<div id="maruamyu-pr-text"></div>
+<script type="text/javascript" defer src="/js/pr_text.js?v=20230610"></script>
+-->
+<aside class="bg-light-subtle text-secondary my-2 border border-secondary-subtle" style="font-size:88.8%;">
+	<div class="m-2 mb-0">[広告] <a href="https://www.amazon.co.jp/gp/search?ie=UTF8&amp;keywords=%E3%82%A2%E3%82%A4%E3%83%89%E3%83%AB%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC&amp;index=aps&amp;tag=imas-db-22" target="_blank" rel="noopener">Amazon.co.jpでのアイドルマスター関連商品のお買いものはこちらから</a></div>
+	<div class="d-md-flex">
+		<div class="m-2">[広告] <a href="https://hb.afl.rakuten.co.jp/hgc/44758bfe.9c8c056f.44758bff.ac0f55f6/?pc=https%3A%2F%2Fevent.rakuten.co.jp%2Fcomputer%2Fitunes%2F&link_type=text&ut=eyJwYWdlIjoidXJsIiwidHlwZSI6InRleHQiLCJjb2wiOjF9" target="_blank" rel="nofollow sponsored noopener">【楽天市場】Apple Gift Card 認定店</a></div>
+		<div class="m-2">[広告] <a href="https://hb.afl.rakuten.co.jp/hgc/022ca198.acb10f45.11f06ce3.00a27e90/?pc=https%3A%2F%2Fevent.rakuten.co.jp%2Fcomputer%2Fgpgiftcard%2F&link_type=text&ut=eyJwYWdlIjoidXJsIiwidHlwZSI6InRleHQiLCJjb2wiOjF9" target="_blank" rel="nofollow sponsored noopener">【楽天市場】Google Play ギフトコード 認定店</a></div>
+	</div>
+<!--
+	<div class="m-2 mt-0">[広告] <a href="https://www.amazon.co.jp/dp/4253298168?tag=imas-db-22&amp;linkCode=osi&amp;th=1&amp;psc=1" target="_blank" rel="noopener">Amazon.co.jp - 学園アイドルマスター GOLD RUSH オリジナルCD付き特装版 第3巻</a></div>
+	<div class="m-2 mt-0">[広告] <a href="//ck.jp.ap.valuecommerce.com/servlet/referral?sid=3468660&amp;pid=885929024&amp;vc_url=https%3A%2F%2Fshop.columbia.jp%2Fshop%2Fe%2Feimas%2F%3Futm_source%3Dvc%26utm_medium%3Daffiliate%26utm_campaign%3Dvcmylink%26argument%3DNqhqWCbs%26dmai%3Da59013df992553" rel="nofollow">コロムビアミュージックショップ: アイドルマスター765PRO ALLSTARS関連商品 (ライブ限定CD・ライブBlu-rayなど)<img src="//ad.jp.ap.valuecommerce.com/servlet/gifbanner?sid=3468660&amp;pid=885929024" border="0" width="0" height="1"></a></div>
+-->
+</aside>
+<hr>
+
+<p>アイマスライブイベントの記録です。セットリストなど。</p>
+
+<aside class="sticky-top d-flex bg-white my-2 border border-light-subtle" id="brand-selector">
+</aside>
+
+<div class="section">
+<h2>2026年</h2>
+<ul>
+<li data-brand-ids="1,4,5,6,8,11,3,10,9" class="mb-3"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span>
+ THE IDOLM@STER 20th Anniversary MORE RE@LITY LIVE IDOL WORLD SUPER FESTIVAL 2026
+ <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span>
+ <span class="visually-hidden">/</span> <span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span>
+ <span class="visually-hidden">/</span> <span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span>
+ <span class="visually-hidden">/</span> <span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span>
+ <span class="visually-hidden">/</span> <span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span>
+ <span class="visually-hidden">/</span> <span title="学園アイドルマスター" class="badge small bg-imas-brand-gakuen">学園</span>
+ <span class="visually-hidden">/</span> <span title="ディアリースターズ" class="badge small bg-imas-brand-dearlystars">DS</span>
+ <span class="visually-hidden">/</span> <span title="vα-liv" class="badge small bg-imas-brand-valiv">ヴイアラ</span>
+ <span class="visually-hidden">/</span> <span title="961プロダクション" class="badge small bg-imas-brand-961pro">961プロ</span><span class="visually-hidden">)</span>
+	<ul>
+		<li><a href="./idolmaster_iwsf_day1.html" title="IDOL WORLD SUPER FESTIVAL 2026 第一公演 -YAKUDOU-">第一公演 -YAKUDOU-</a> <small class="date">- 2026/07/24(金)</small></li>
+		<li><a href="./idolmaster_iwsf_day2.html" title="IDOL WORLD SUPER FESTIVAL 2026 第二公演 -ZESSYOU-">第二公演 -ZESSYOU-</a> <small class="date">- 2026/07/25(土)</small></li>
+		<li><a href="./idolmaster_iwsf_day3.html" title="IDOL WORLD SUPER FESTIVAL 2026 第三公演 -KYOUMEI-">第三公演 -KYOUMEI-</a> <small class="date">- 2026/07/26(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="4" class="mb-3"><a href="./cinderella_cg_musical_dd.html">CINDERELLA GIRLS MUSICAL DERE of the DEAD</a> <small class="date">- 2026/07/04(土)・05(日)</small>
+ <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="11">学園アイドルマスター The 2nd Period Hatsuboshi IDOL FESTIVAL <span class="visually-hidden">(</span><span title="学園アイドルマスター" class="badge small bg-imas-brand-gakuen">学園</span><span class="visually-hidden">)</span>
+	<ul>
+		<li><a href="./gakuen_2ndperiod_day1.html" title="学園アイドルマスター The 2nd Period Hatsuboshi IDOL FESTIVAL DAY1">DAY1</a> <small class="date">- 2026/06/06(土)</small></li>
+		<li><a href="./gakuen_2ndperiod_day2.html" title="学園アイドルマスター The 2nd Period Hatsuboshi IDOL FESTIVAL DAY2">DAY2</a> <small class="date">- 2026/06/07(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="11"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> 学園アイドルマスター The 2nd Period H.I.F<ruby><rb>選抜試験</rb><rp>(</rp><rt>セレクション</rt><rp>)</rp></ruby> <span class="visually-hidden">(</span><span title="学園アイドルマスター" class="badge small bg-imas-brand-gakuen">学園</span><span class="visually-hidden">)</span>
+	<ul>
+		<li><a href="./gakuen_2nd_selection_day1.html" title="学園アイドルマスター The 2nd Period H.I.F選抜試験(セレクション) DAY1">DAY1</a> <small class="date">- 2026/05/16(土)</small></li>
+		<li><a href="./gakuen_2nd_selection_day2.html" title="学園アイドルマスター The 2nd Period H.I.F選抜試験(セレクション) DAY2">DAY2</a> <small class="date">- 2026/05/17(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="1" class="mb-3"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> <a href="./765as_ac2026_miki.html">MIKI HOSHII SOLO SHOWCASE &quot;THE FUTURE SPOTLIGHT&quot; at Anime Central 2026</a> <small class="date">- 中部夏時間 2026/05/15 (日本時間 2026/05/16)</small>
+ <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="4" class="mb-3"><a href="./cinderella_cg_musical_sh.html">CINDERELLA GIRLS MUSICAL STARLIGHT HIGH SCHOOL!</a> <small class="date">- 2026/05/09(土)・10(日)</small>
+ <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="5">THE IDOLM@STER MILLION LIVE! 13thLIVE <span class="visually-hidden">(</span><span class="visually-hidden">/</span> <span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span>
+	<ul>
+		<li><a href="./million_13th_day1.html" title="THE IDOLM@STER MILLION LIVE! 13thLIVE DAY1 全力援走">DAY1 全力援走</a> <span class="caption">[主演:<span class="idol-name" data-brand-id="5" data-character-id="233" data-person-id="80" data-million-attr="1" title="高山紗代子(CV:駒形友梨)">高山紗代子</span>]</span> <small class="date">- 2026/05/05(火祝)</small></li>
+		<li><a href="./million_13th_day2.html" title="THE IDOLM@STER MILLION LIVE! 13thLIVE DAY2 Grand bal masqué">DAY2 Grand bal masqué</a> <span class="caption">[主演:<span class="idol-name" data-brand-id="5" data-character-id="241" data-person-id="91" data-million-attr="2" title="二階堂千鶴(CV:野村香菜子)">二階堂千鶴</span>]</span> <small class="date">- 2026/05/06(水祝)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="8">THE IDOLM@STER SHINY COLORS ∞th LIVE iと夢 <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span>
+	<ul>
+		<li><a href="./shinycolors_8th_day1.html" title="THE IDOLM@STER SHINY COLORS ∞th LIVE iと夢 DAY1">DAY1</a> <small class="date">- 2026/04/25(土)</small></li>
+		<li><a href="./shinycolors_8th_day2.html" title="THE IDOLM@STER SHINY COLORS ∞th LIVE iと夢 DAY2">DAY2</a> <small class="date">- 2026/04/26(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="8" class="mb-3"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> <a href="./shinycolors_283_xxx.html">283 Production XXXX Performance XXX= S/N-GUL4R1TY</a> <small class="date">- 2026/04/11(土)・12(日)</small>
+ <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="5">THE IDOLM@STER MILLION LIVE! 11thLIVE <span class="visually-hidden">(</span><span class="visually-hidden">/</span> <span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./million_11thlive_day1.html" title="THE IDOLM@STER MILLION LIVE! 11thLIVE DAY1 Atelier ROCOMOTION!!">DAY1 Atelier ROCOMOTION!!</a> <span class="caption">[主演:<span class="idol-name" data-brand-id="5" data-character-id="252" data-person-id="78" data-million-attr="2" title="ロコ(CV:中村温姫)">ロコ</span>]</span> <small class="date">- 2026/03/14(土)</small></li>
+	<li><a href="./million_11thlive_day2.html" title="THE IDOLM@STER MILLION LIVE! 11thLIVE DAY2 百合咲き誇るレムリア">DAY2 百合咲き誇るレムリア</a> <span class="caption">[主演:<span class="idol-name" data-brand-id="5" data-character-id="240" data-person-id="79" data-million-attr="1" title="七尾百合子(CV:伊藤美来)">七尾百合子</span>]</span> <small class="date">- 2026/03/15(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="11">学園アイドルマスター 初星音楽祭 <span class="visually-hidden">(</span><span title="学園アイドルマスター" class="badge small bg-imas-brand-gakuen">学園</span><span class="visually-hidden">)</span>
+	<ul>
+		<li><a href="./gakuen_gkmas_musicfestival_day1.html" title="学園アイドルマスター 初星音楽祭 DAY1">DAY1</a> <small class="date">- 2026/02/28(土)</small></li>
+		<li><a href="./gakuen_gkmas_musicfestival_day2.html" title="学園アイドルマスター 初星音楽祭 DAY2">DAY2</a> <small class="date">- 2026/03/01(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="3,10" class="mb-3">THE IDOLM@STER 20th Anniversary 876 PRODUCTION FES.
+ <span class="visually-hidden">(</span><span title="876プロダクション" class="badge small bg-imas-brand-876pro">876プロ</span><span class="visually-hidden">)</span>
+	<ul>
+		<li><a href="./idolmaster_876pro_fes_day1.html" title="PROJECT IM@S vα-liv 2ndLIVE -BEYOND THE CUSTOM !!!-">PROJECT IM@S vα-liv 2ndLIVE -BEYOND THE CUSTOM !!!-</a> <small class="date">- 2026/02/21(土)</small>  <span class="visually-hidden">(</span><span title="vα-liv" class="badge small bg-imas-brand-valiv">ヴイアラ</span><span class="visually-hidden">)</span></li>
+		<li><a href="./idolmaster_876pro_fes_day2.html" title="THE IDOLM@STER Dearly Stars -Dearly, Dearly MEETING !!!-">THE IDOLM@STER Dearly Stars -Dearly, Dearly MEETING !!!-</a> <small class="date">- 2026/02/22(日)</small> <span class="visually-hidden">(</span><span title="ディアリースターズ" class="badge small bg-imas-brand-dearlystars">DS</span><span class="visually-hidden">)</span></li>
+		<li><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> <a href="./idolmaster_876pro_fes_day3.html" title="Dearly Stars &times; vα-liv LIVE -UNDER ONE SKY !!!!!!-">Dearly Stars &times; vα-liv LIVE -UNDER ONE SKY !!!!!!-</a> <small class="date">- 2026/02/23(月祝)</small> <span class="visually-hidden">(</span><span title="ディアリースターズ" class="badge small bg-imas-brand-dearlystars">DS</span> <span class="visually-hidden">/</span> <span title="vα-liv" class="badge small bg-imas-brand-valiv">ヴイアラ</span><span class="visually-hidden">)</span></li>
+	</ul>
+</li>
+<li data-brand-ids="8" class="mb-3"><a href="./shinycolors_283pro_kansyasai.html">THE IDOLM@STER SHINY COLORS シャニマス大感謝祭！ 〜283スポーツフェスティバル〜</a> <small class="date">- 2026/02/14(土)・15(日)</small>
+ <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="1" class="mb-3"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> <a href="./765as_oath_one.html">如月千早武道館単独公演「OathONE」</a> <small class="date">- 2026/01/24(土)・25(日)</small>
+ <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span><span class="visually-hidden">)</span></li>
+</ul>
+</div>
+
+<div class="section">
+<h2>2025年</h2>
+<ul>
+<li data-brand-ids="8" class="mb-3"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> <a href="./shinycolors_283_order.html">283 Production MUSICAL Performance 騎士団のヴェール -Veil of Order-</a> <small class="date">- 2025/12/27(土)・28(日)</small>
+ <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="1,4,5,6,8,11,10,9" class="mb-3">THE IDOLM@STER M@STERS OF IDOL WORLD 2025
+ <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span>
+ <span class="visually-hidden">/</span> <span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span>
+ <span class="visually-hidden">/</span> <span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span>
+ <span class="visually-hidden">/</span> <span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span>
+ <span class="visually-hidden">/</span> <span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span>
+ <span class="visually-hidden">/</span> <span title="学園アイドルマスター" class="badge small bg-imas-brand-gakuen">学園</span>
+ <span class="visually-hidden">/</span> <span title="vα-liv" class="badge small bg-imas-brand-valiv">ヴイアラ</span>
+ <span class="visually-hidden">/</span> <span title="961プロダクション" class="badge small bg-imas-brand-961pro">961プロ</span><span class="visually-hidden">)</span>
+	<ul>
+		<li><a href="./idolmaster_idolworld2025_day1.html" title="THE IDOLM@STER M@STERS OF IDOL WORLD 2025 DAY1">DAY1</a> <small class="date">- 2025/12/13(土)</small></li>
+		<li><a href="./idolmaster_idolworld2025_day2.html" title="THE IDOLM@STER M@STERS OF IDOL WORLD 2025 DAY2">DAY2</a> <small class="date">- 2025/12/14(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="4"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> CINDERELLA GIRLS fes. Once Upon a St@rs <span class="visually-hidden">(</span><span class="visually-hidden">/</span> <span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span>
+	<ul>
+		<li><a href="./cinderella_cg_fes_oustars_stage1.html" title="CINDERELLA GIRLS fes. Once Upon a St@rs Luminaria Tiara (DAY1昼)">Luminaria Tiara</a> <small class="date">- 2025/11/29(土) 昼公演</small></li>
+		<li><a href="./cinderella_cg_fes_oustars_stage2.html" title="CINDERELLA GIRLS fes. Once Upon a St@rs Nocturne Crown (DAY1夜)">Nocturne Crown</a> <small class="date">- 2025/11/29(土) 夜公演</small></li>
+		<li><a href="./cinderella_cg_fes_oustars_stage3.html" title="CINDERELLA GIRLS fes. Once Upon a St@rs Princess Riot (DAY2昼)">Princess Riot</a> <small class="date">- 2025/11/30(日) 昼公演</small></li>
+		<li><a href="./cinderella_cg_fes_oustars_stage4.html" title="CINDERELLA GIRLS fes. Once Upon a St@rs Ever Starlight (DAY2夜)">Ever Starlight</a> <small class="date">- 2025/11/30(日) 夜公演</small></li>
+	</ul>
+</li>
+<li data-brand-ids="1" class="mb-3"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> <a href="./765as_twinlive_nakayoshi.html">高槻やよい・水瀬伊織 twin live &quot;いつまでもなかよし！&quot;</a> <small class="date">- 2025/10/18(土)・19(日)</small>
+ <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="5">THE IDOLM@STER MILLION LIVE! 12thLIVE <span class="visually-hidden">(</span><span class="visually-hidden">/</span> <span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span>
+	<ul>
+		<li><a href="./million_12th_day1.html" title="THE IDOLM@STER MILLION LIVE! 12thLIVE DAY1 ありのままに。">DAY1 ありのままに。</a> <span class="caption">[主演:<span class="idol-name" data-brand-id="5" data-character-id="227" data-person-id="101" data-million-attr="3" title="北上麗花(CV:平山笑美)">北上麗花</span>]</span> <small class="date">- 2025/10/11(土)</small></li>
+		<li><a href="./million_12th_day2.html" title="THE IDOLM@STER MILLION LIVE! 12thLIVE DAY2 Let&apos;s Sing!">DAY2 Let&apos;s Sing!</a> <span class="caption">[主演:<span class="idol-name" data-brand-id="5" data-character-id="332" data-person-id="205" data-million-attr="3" title="桜守歌織(CV:香里有佐)">桜守歌織</span>]</span> <small class="date">- 2025/10/12(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="6"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> 315 Production presents F@NTASTIC BATTLE FES 〜Who goes first〜 <span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span>
+	<ul>
+		<li><a href="./sidem_fbfes_wgf_makuhari_day1.html" title="315 Production presents F@NTASTIC BATTLE FES 〜Who goes first〜 幕張公演 DAY1">幕張公演DAY1</a> <small class="date">- 2025/10/04(土)</small></li>
+		<li><a href="./sidem_fbfes_wgf_makuhari_day2.html" title="315 Production presents F@NTASTIC BATTLE FES 〜Who goes first〜 幕張公演 DAY2">幕張公演DAY2</a> <small class="date">- 2025/10/05(日)</small></li>
+		<li><a href="./sidem_fbfes_wgf_osaka_day1.html" title="315 Production presents F@NTASTIC BATTLE FES 〜Who goes first〜 大阪公演 DAY1">大阪公演DAY1</a> <small class="date">- 2025/11/15(土)</small></li>
+		<li><a href="./sidem_fbfes_wgf_osaka_day2.html" title="315 Production presents F@NTASTIC BATTLE FES 〜Who goes first〜 大阪公演 DAY2">大阪公演DAY2</a> <small class="date">- 2025/11/16(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="11">学園アイドルマスター クラス対抗初星大運動会 <span class="visually-hidden">(</span><span title="学園アイドルマスター" class="badge small bg-imas-brand-gakuen">学園</span><span class="visually-hidden">)</span>
+	<ul>
+		<li><a href="./gakuen_gkmas_undokai_day1.html" title="学園アイドルマスター クラス対抗初星大運動会 DAY1">DAY1</a> <small class="date">- 2025/09/20(土)</small></li>
+		<li><a href="./gakuen_gkmas_undokai_day2.html" title="学園アイドルマスター クラス対抗初星大運動会 DAY2">DAY2</a> <small class="date">- 2025/09/21(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="1">THE IDOLM@STER 765PRO ALLSTARS LIVE 〜NEVER END IDOL!!!!!!!!!!!!!〜 <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./765as_never_end_idol_day1.html" title="THE IDOLM@STER 765PRO ALLSTARS LIVE 〜NEVER END IDOL!!!!!!!!!!!!!〜 [DAY1]">DAY1</a> <small class="date">- 2025/08/02(土)</small></li>
+	<li><a href="./765as_never_end_idol_day2.html" title="THE IDOLM@STER 765PRO ALLSTARS LIVE 〜NEVER END IDOL!!!!!!!!!!!!!〜 [DAY2]">DAY2</a> <small class="date">- 2025/08/03(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="1,4,5,6,8,11" class="mb-3"><a href="./idolmaster_orch_2025.html">THE IDOLM@STER 20th anniversary ORCHESTRA CONCERT SYMPHONY OF BRILLIANT STARS</a> <small class="date">- 2025/07/21(月祝)</small>
+ <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span>
+ <span class="visually-hidden">/</span> <span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span>
+ <span class="visually-hidden">/</span> <span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span>
+ <span class="visually-hidden">/</span> <span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span>
+ <span class="visually-hidden">/</span> <span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span>
+ <span class="visually-hidden">/</span> <span title="学園アイドルマスター" class="badge small bg-imas-brand-gakuen">学園</span><span class="visually-hidden">)</span>
+</li>
+<li data-brand-ids="8">THE IDOLM@STER SHINY COLORS 7th LIVE TOUR 円環/螺旋 -Halo around- <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span>
+	<ul>
+		<li><a href="./shinycolors_7th_first.html" title="THE IDOLM@STER SHINY COLORS 7th UNITLIVE TOUR 円環 -Halo around- first quadrant (福岡公演)">first quadrant</a> <small class="caption">(福岡, <span class="idol-name" data-brand-id="8" data-group-id="102">アンティーカ</span>&times;<span class="idol-name" data-brand-id="8" data-group-id="107">シーズ</span>)</small> <small class="date">- 2025/06/21(土)・22(日)</small></li>
+		<li><a href="./shinycolors_7th_second.html" title="THE IDOLM@STER SHINY COLORS 7th UNITLIVE TOUR 円環 -Halo around- second quadrant (横浜公演)">second quadrant</a> <small class="caption">(横浜, <span class="idol-name" data-brand-id="8" data-group-id="103">放課後クライマックスガールズ</span>&times;<span class="idol-name" data-brand-id="8" data-group-id="105">ストレイライト</span>)</small> <small class="date">- 2025/07/05(土)・06(日)</small></li>
+		<li><a href="./shinycolors_7th_third.html" title="THE IDOLM@STER SHINY COLORS 7th UNITLIVE TOUR 円環 -Halo around- third quadrant (愛知公演)">third quadrant</a> <small class="caption">(愛知, <span class="idol-name" data-brand-id="8" data-group-id="104">アルストロメリア</span>&times;<span class="idol-name" data-brand-id="8" data-group-id="108">コメティック</span>)</small> <small class="date">- 2025/08/09(土)・10(日)</small></li>
+		<li><a href="./shinycolors_7th_fourth.html" title="THE IDOLM@STER SHINY COLORS 7th UNITLIVE TOUR 円環 -Halo around- fourth quadrant (青森公演)">fourth quadrant</a> <small class="caption">(青森, <span class="idol-name" data-brand-id="8" data-group-id="101">イルミネーションスターズ</span>&times;<span class="idol-name" data-brand-id="8" data-group-id="106">ノクチル</span>)</small> <small class="date">- 2025/09/27(土)・28(日)</small></li>
+		<li><a href="./shinycolors_7th_rasen_day1.html" title="THE IDOLM@STER SHINY COLORS 7th LIVE TOUR 螺旋 -Halo around- &quot;The origin on the axes&quot; (Kアリーナ横浜) DAY1">螺旋 &quot;The origin on the axes&quot; DAY1</a> <small class="caption">(Kアリーナ横浜)</small> <small class="date">- 2025/10/25(土)</small></li>
+		<li><a href="./shinycolors_7th_rasen_day2.html" title="THE IDOLM@STER SHINY COLORS 7th LIVE TOUR 螺旋 -Halo around- &quot;The origin on the axes&quot; (Kアリーナ横浜) DAY2">螺旋 &quot;The origin on the axes&quot; DAY2</a> <small class="caption">(Kアリーナ横浜)</small> <small class="date">- 2025/10/26(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="11">学園アイドルマスター The 1st Period <span class="visually-hidden">(</span><span title="学園アイドルマスター" class="badge small bg-imas-brand-gakuen">学園</span><span class="visually-hidden">)</span>
+	<ul>
+		<li><a href="./gakuen_1stperiod_ss_day1.html" title="学園アイドルマスター The 1st Period Spotlight Star DAY1">Spotlight Star DAY1</a> <small class="date">- 2025/05/24(土)</small></li>
+		<li><a href="./gakuen_1stperiod_ss_day2.html" title="学園アイドルマスター The 1st Period Spotlight Star DAY2">Spotlight Star DAY2</a> <small class="date">- 2025/05/25(日)</small></li>
+		<li><a href="./gakuen_1stperiod_hs_day1.html" title="学園アイドルマスター The 1st Period Harmony Star DAY1">Harmony Star DAY1</a> <small class="date">- 2025/05/31(土)</small></li>
+		<li><a href="./gakuen_1stperiod_hs_day2.html" title="学園アイドルマスター The 1st Period Harmony Star DAY2">Harmony Star DAY2</a> <small class="date">- 2025/06/01(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="6"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> <a href="./sidem_fclive_cor.html">315 Production presents F@NTASTIC COMBINATION LIVE 〜CHOCOFFICERANGER!!〜</a> <small class="date">- 2025/05/17(土)</small>
+ <span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="6" class="mb-3"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> <a href="./sidem_fclive_azto.html">315 Production presents F@NTASTIC COMBINATION LIVE 〜AtoZto!!〜</a> <small class="date">- 2025/05/18(日)</small>
+ <span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="8" class="mb-3"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> <a href="./shinycolors_283_uka.html">283 Production LIVE Performance Uka,</a> <small class="date">- 2025/05/10(土)・11(日)</small>
+ <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="4,5,denonbu" class="mb-3"><a href="./mnf2025.html">MaiNote Festival 2025</a> <small class="date">- 2024/04/11(金)</small>
+ <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span>
+ <span class="visually-hidden">/</span> <span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span>
+ <span class="visually-hidden">(</span><span title="電音部" class="badge small bg-asobinotes-brand-denonbu">電音部</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="1,5">THE IDOLM@STER 765 MILLIONSTARS HOTCHPOTCH FESTIV@L!! 2 <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span> <span class="visually-hidden">/</span> <span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./million_hpf2_day1.html" title="THE IDOLM@STER 765 MILLIONSTARS HOTCHPOTCH FESTIV@L!! 2 [DAY1]">DAY1</a> <small class="date">- 2025/03/29(土)</small></li>
+	<li><a href="./million_hpf2_day2.html" title="THE IDOLM@STER 765 MILLIONSTARS HOTCHPOTCH FESTIV@L!! 2 [DAY2]">DAY2</a> <small class="date">- 2025/03/30(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="10" class="mb-3"><a href="./valiv_1st_live.html">PROJECT IM@S vα-liv 1stLIVE -HERE WE ARE!!!-</a> <small class="date">- 2025/03/22(土)</small>
+ <span class="visually-hidden">(</span><span title="vα-liv" class="badge small bg-imas-brand-valiv">ヴイアラ</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="4">THE IDOLM@STER CINDERELLA GIRLS STARLIGHT STAGE 10th ANNIVERSARY TOUR Let&apos;s AMUSEMENT!!! <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span>
+	<ul>
+		<li><a href="./cinderella_cgss10th_osaka_day1.html" title="THE IDOLM@STER CINDERELLA GIRLS STARLIGHT STAGE 10th ANNIVERSARY TOUR Let&apos;s AMUSEMENT!!! 大阪公演DAY1">大阪公演DAY1</a> <small class="date">- 2025/03/08(土)</small></li>
+		<li><a href="./cinderella_cgss10th_osaka_day2.html" title="THE IDOLM@STER CINDERELLA GIRLS STARLIGHT STAGE 10th ANNIVERSARY TOUR Let&apos;s AMUSEMENT!!! 大阪公演DAY2">大阪公演DAY2</a> <small class="date">- 2025/03/09(日)</small></li>
+		<li><a href="./cinderella_cgss10th_tokyo_day1.html" title="THE IDOLM@STER CINDERELLA GIRLS STARLIGHT STAGE 10th ANNIVERSARY TOUR Let&apos;s AMUSEMENT!!! 東京公演DAY1">東京公演DAY1</a> <small class="date">- 2025/04/26(土)</small></li>
+		<li><a href="./cinderella_cgss10th_tokyo_day2.html" title="THE IDOLM@STER CINDERELLA GIRLS STARLIGHT STAGE 10th ANNIVERSARY TOUR Let&apos;s AMUSEMENT!!! 東京公演DAY2">東京公演DAY2</a> <small class="date">- 2025/04/27(日)</small></li>
+		<li><a href="./cinderella_cgss10th_okinawa_day1.html" title="THE IDOLM@STER CINDERELLA GIRLS STARLIGHT STAGE 10th ANNIVERSARY TOUR Let&apos;s AMUSEMENT!!! 沖縄公演DAY1">沖縄公演DAY1</a> <small class="date">- 2025/06/07(土)</small></li>
+		<li><a href="./cinderella_cgss10th_okinawa_day2.html" title="THE IDOLM@STER CINDERELLA GIRLS STARLIGHT STAGE 10th ANNIVERSARY TOUR Let&apos;s AMUSEMENT!!! 沖縄公演DAY2">沖縄公演DAY2</a> <small class="date">- 2025/06/08(日)</small></li>
+		<li><a href="./cinderella_cgss10th_fukuoka_day1.html" title="THE IDOLM@STER CINDERELLA GIRLS STARLIGHT STAGE 10th ANNIVERSARY TOUR Let&apos;s AMUSEMENT!!! 福岡公演DAY1">福岡公演DAY1</a> <small class="date">- 2025/06/28(土)</small></li>
+		<li><a href="./cinderella_cgss10th_fukuoka_day2.html" title="THE IDOLM@STER CINDERELLA GIRLS STARLIGHT STAGE 10th ANNIVERSARY TOUR Let&apos;s AMUSEMENT!!! 福岡公演DAY2">福岡公演DAY2</a> <small class="date">- 2025/06/29(日)</small></li>
+		<li><a href="./cinderella_cgss10th_kanagawa_day1.html" title="THE IDOLM@STER CINDERELLA GIRLS 10th MEMORIAL LIVE STARLIGHT STAGE [DAY1]">神奈川公演DAY1</a> <small class="date">- 2025/09/06(土)</small></li>
+		<li><a href="./cinderella_cgss10th_kanagawa_day2.html" title="THE IDOLM@STER CINDERELLA GIRLS 10th MEMORIAL LIVE STARLIGHT STAGE [DAY2]">神奈川公演DAY2</a> <small class="date">- 2025/09/07(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="8">THE IDOLM@STER SHINY COLORS 2nd season LIVE Over the prism <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span>
+	<ul>
+		<li><a href="./shinycolors_over_the_prism_day1.html" title="THE IDOLM@STER SHINY COLORS 2nd season LIVE Over the prism [DAY1]">DAY1</a> <small class="date">- 2025/03/01(土)</small></li>
+		<li><a href="./shinycolors_over_the_prism_day2.html" title="THE IDOLM@STER SHINY COLORS 2nd season LIVE Over the prism [DAY2]">DAY2</a> <small class="date">- 2025/03/02(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="8" class="mb-3"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> <a href="./shinycolors_lme.html">283 Production LIVE Performance [liminal;marginal;eternal]</a> <small class="date">- 2025/01/11(土)・12(日)</small>
+ <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span></li>
+</ul>
+</div>
+
+<div class="section">
+<h2>2024年</h2>
+<ul>
+<li data-brand-ids="1,4,5,6,8,10,11" class="mb-3"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span><small class="notes" title="&quot;LIVE SHOWCASE&quot;のみ">(※)</small> <a href="./idolmaster_master_expo.html">THE IDOLM@STER MASTER EXPO LIVE SHOWCASE &amp; エキスポステージ</a> <small class="date">- 2024/12/14(土)・15(日)</small>
+<span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span>
+<span class="visually-hidden">/</span> <span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span>
+<span class="visually-hidden">/</span> <span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span>
+<span class="visually-hidden">/</span> <span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span>
+<span class="visually-hidden">/</span> <span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span>
+<span class="visually-hidden">/</span> <span title="学園アイドルマスター" class="badge small bg-imas-brand-gakuen">学園</span>
+<span class="visually-hidden">/</span> <span title="vα-liv" class="badge small bg-imas-brand-valiv">ヴイアラ</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="6" class="mb-3"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> <a href="./sidem_fclive_pt.html">315 Production presents F@NTASTIC COMBINATION LIVE 〜PINATATIME!!〜</a> <small class="date">- 2024/12/01(日)</small>
+ <span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="6">SideM 10th ANNIVERSARY P@SSION TOUR <span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span>
+	<ul>
+		<li><a href="./sidem_10thpm_ehime.html" title="THE IDOLM@STER SideM 10th ANNIVERSARY MEETING 〜P@SSION BANG!!!〜 (愛媛公演)">愛媛公演</a> <small class="date">- 2024/11/03(日)</small></li>
+		<li><a href="./sidem_10thpm_kumamoto.html" title="THE IDOLM@STER SideM 10th ANNIVERSARY MEETING 〜P@SSION SPARKS!!!〜 (熊本公演)">熊本公演</a> <small class="date">- 2024/12/22(日)</small></li>
+		<li><a href="./sidem_10thpm_osaka_day1.html" title="THE IDOLM@STER SideM 10th ANNIVERSARY MEETING 〜P@SSION SUNDAE!!!〜 (大阪公演) [DAY1]">大阪公演DAY1</a> <small class="date">- 2025/02/08(土)</small></li>
+		<li><a href="./sidem_10thpm_osaka_day2.html" title="THE IDOLM@STER SideM 10th ANNIVERSARY MEETING 〜P@SSION SUNDAE!!!〜 (大阪公演) [DAY2]">大阪公演DAY2</a> <small class="date">- 2025/02/09(日)</small></li>
+		<li><a href="./sidem_10thpm_makuhari_day1.html" title="THE IDOLM@STER SideM 10th ANNIVERSARY MEETING 〜P@SSION UP!!!〜 (幕張公演) [DAY1]">幕張公演DAY1</a> <small class="date">- 2025/03/15(土)</small></li>
+		<li><a href="./sidem_10thpm_makuhari_day2.html" title="THE IDOLM@STER SideM 10th ANNIVERSARY MEETING 〜P@SSION UP!!!〜 (幕張公演) [DAY2]">幕張公演DAY2</a> <small class="date">- 2025/03/16(日)</small></li>
+		<li><a href="./sidem_10thpm_yokohama_day1.html" title="THE IDOLM@STER SideM 10th ANNIVERSARY ST@GE 〜P@SSION-ING!!!〜 (横浜公演) [DAY1]">横浜公演DAY1</a> <small class="date">- 2025/07/12(土)</small></li>
+		<li><a href="./sidem_10thpm_yokohama_day2.html" title="THE IDOLM@STER SideM 10th ANNIVERSARY ST@GE 〜P@SSION-ING!!!〜 (横浜公演) [DAY2]">横浜公演DAY2</a> <small class="date">- 2025/07/13(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="8">THE IDOLM@STER SHINY COLORS 6.5th Anniversary LIVE &quot;Chapter 283&quot; <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./shinycolors_6_5th_day1.html" title="THE IDOLM@STER SHINY COLORS 6.5th Anniversary LIVE &quot;Chapter 283&quot; [DAY1]">DAY1</a> <small class="date">- 2024/10/05(土)</small></li>
+	<li><a href="./shinycolors_6_5th_day2.html" title="THE IDOLM@STER SHINY COLORS 6.5th Anniversary LIVE &quot;Chapter 283&quot; [DAY2]">DAY2</a> <small class="date">- 2024/10/06(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="10" class="mb-3"><a href="./valiv_producer_meeting2024.html">PROJECT IM@S vα-liv PRODUCER MEETING 2024 -FROM NOW ON!!!-</a> <small class="date">- 2024/09/28(土)</small>
+ <span class="visually-hidden">(</span><span title="vα-liv" class="badge small bg-imas-brand-valiv">ヴイアラ</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="4">THE IDOLM@STER CINDERELLA GIRLS STARLIGHT FANTASY <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./cinderella_cg_sf_day1.html" title="THE IDOLM@STER CINDERELLA GIRLS STARLIGHT FANTASY [DAY1]">DAY1</a> <small class="date">- 2024/09/14(土)</small></li>
+	<li><a href="./cinderella_cg_sf_day2.html" title="THE IDOLM@STER CINDERELLA GIRLS STARLIGHT FANTASY [DAY2]">DAY2</a> <small class="date">- 2024/09/15(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="9"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> 961 PRODUCTION presents 『Re:FLAME』
+ <span class="visually-hidden">(</span><span title="961プロダクション" class="badge small bg-imas-brand-961pro">961プロ</span><span class="visually-hidden">)</span>
+	<ul>
+		<li><a href="./961production_reflame.html" title="961 PRODUCTION presents 『Re:FLAME』 京都公演">京都公演</a> <small class="caption">(初演)</small> <small class="date">- 2024/08/24(土)・25(日)</small></li>
+		<li><a href="./961production_reflame_osaka.html" title="961 PRODUCTION presents 『Re:FLAME』 大阪公演">大阪公演</a> <small class="caption">(追加公演)</small> <small class="date">- 2025/02/01(土)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="11">学園アイドルマスター DEBUT LIVE 初 TOUR <span class="visually-hidden">(</span><span title="学園アイドルマスター" class="badge small bg-imas-brand-gakuen">学園</span><span class="visually-hidden">)</span>
+	<ul>
+		<li class="mt-1">初声公演 <small class="caption">(<span class="idol-name" data-brand-id="11" data-character-id="425" data-person-id="315" title="花海咲季(CV:長月あおい)">咲季</span>・<span class="idol-name" data-brand-id="11" data-character-id="426" data-person-id="316" title="月村手毬(CV:小鹿なお)">手毬</span>・<span class="idol-name" data-brand-id="11" data-character-id="427" data-person-id="317" title="藤田ことね(CV:飯田ヒカル)">ことね</span>)</small>
+			<ul class="mb-0">
+				<li><a href="./gakuen_debutlivehajime_ubugoe_nagoya.html" title="学園アイドルマスター DEBUT LIVE 初 TOUR -初声公演- 名古屋">初声公演 名古屋</a> <small class="date">- 2024/08/10(土)</small></li>
+				<li><a href="./gakuen_debutlivehajime_ubugoe_umeda.html" title="学園アイドルマスター DEBUT LIVE 初 TOUR -初声公演- 梅田">初声公演 梅田</a> <small class="date">- 2024/08/18(日)</small></li>
+				<li><a href="./gakuen_debutlivehajime_ubugoe_shibuya.html" title="学園アイドルマスター DEBUT LIVE 初 TOUR -初声公演- 渋谷">初声公演 渋谷</a> <small class="date">- 2024/08/25(日)</small></li>
+			</ul>
+		</li>
+		<li class="mt-1">初心公演 <small class="caption">(<span class="idol-name" data-brand-id="11" data-character-id="429" data-person-id="319" title="葛城リーリヤ(CV:花岩香奈)">リーリヤ</span>・<span class="idol-name" data-brand-id="11" data-character-id="430" data-person-id="320" title="倉本千奈(CV:伊藤舞音)">千奈</span>・<span class="idol-name" data-brand-id="11" data-character-id="433" data-person-id="323" title="姫崎莉波(CV:薄井友里)">莉波</span>)</small>
+			<ul class="mb-0">
+				<li><a href="./gakuen_debutlivehajime_syoshin_nagoya.html" title="学園アイドルマスター DEBUT LIVE 初 TOUR -初心公演- 名古屋">初心公演 名古屋</a> <small class="date">- 2024/09/07(土)</small></li>
+				<li><a href="./gakuen_debutlivehajime_syoshin_hiroshima.html" title="学園アイドルマスター DEBUT LIVE 初 TOUR -初心公演- 広島">初心公演 広島</a> <small class="date">- 2024/09/23(月祝)</small></li>
+				<li><a href="./gakuen_debutlivehajime_syoshin_umeda.html" title="学園アイドルマスター DEBUT LIVE 初 TOUR -初心公演- 梅田">初心公演 梅田</a> <small class="date">- 2024/12/01(日)</small></li>
+			</ul>
+		</li>
+		<li class="mt-1">初恋公演 <small class="caption">(<span class="idol-name" data-brand-id="11" data-character-id="428" data-person-id="318" title="有村麻央(CV:七瀬つむぎ)">麻央</span>・<span class="idol-name" data-brand-id="11" data-character-id="431" data-person-id="321" title="紫雲清夏(CV:湊みや)">清夏</span>・<span class="idol-name" data-brand-id="11" data-character-id="432" data-person-id="322" title="篠澤広(CV:川村玲奈)">広</span>)</small>
+			<ul class="mb-0">
+				<li><a href="./gakuen_debutlivehajime_hatukoi_umeda.html" title="学園アイドルマスター DEBUT LIVE 初 TOUR -初恋公演- 梅田">初恋公演 梅田</a> <small class="date">- 2024/10/14(月祝)</small></li>
+				<li><a href="./gakuen_debutlivehajime_hatukoi_hiroshima.html" title="学園アイドルマスター DEBUT LIVE 初 TOUR -初恋公演- 広島">初恋公演 広島</a> <small class="date">- 2024/10/19(土)</small></li>
+				<li><a href="./gakuen_debutlivehajime_hatukoi_shibuya.html" title="学園アイドルマスター DEBUT LIVE 初 TOUR -初恋公演- 渋谷">初恋公演 渋谷</a> <small class="date">- 2024/10/27(日)</small></li>
+			</ul>
+		</li>
+		<li class="mt-1">初陣公演 <small class="caption">(<span class="idol-name" data-brand-id="11" data-character-id="436" data-person-id="326" title="花海佑芽(CV:松田彩音)">佑芽</span>/<span class="idol-name" data-brand-id="11" data-character-id="425" data-person-id="315" title="花海咲季(CV:長月あおい)">咲季</span>・<span class="idol-name" data-brand-id="11" data-character-id="437" data-person-id="327" title="秦谷美鈴(CV:春咲暖)">美鈴</span>・<span class="idol-name" data-brand-id="11" data-character-id="438" data-person-id="328" title="十王星南(CV:陽高真白)">星南</span>)</small>
+			<ul class="mb-0">
+				<li><a href="./gakuen_debutlivehajime_uijin_nagoya.html" title="学園アイドルマスター DEBUT LIVE 初 TOUR -初陣公演- 名古屋">初陣公演 名古屋</a> <small class="date">- 2025/02/08(土)</small></li>
+				<li><a href="./gakuen_debutlivehajime_uijin_umeda.html" title="学園アイドルマスター DEBUT LIVE 初 TOUR -初陣公演- 梅田">初陣公演 梅田</a> <small class="date">- 2025/02/11(火祝)</small></li>
+				<li><a href="./gakuen_debutlivehajime_uijin_shibuya.html" title="学園アイドルマスター DEBUT LIVE 初 TOUR -初陣公演- 渋谷">初陣公演 渋谷</a> <small class="date">- 2025/02/16(日)</small></li>
+				<li><a href="./gakuen_debutlivehajime_uijin_addition.html" title="学園アイドルマスター DEBUT LIVE 初 TOUR -初陣公演- 東京追加公演">初陣公演 東京追加公演</a> <small class="date">- 2025/07/04(金)</small></li>
+			</ul>
+		</li>
+	</ul>
+</li>
+<li data-brand-ids="8">THE IDOLM@STER SHINY COLORS LIVE FUN!! -Beyond the Blue sky- <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./shinycolors_livefun_day1.html" title="THE IDOLM@STER SHINY COLORS LIVE FUN!! -Beyond the Blue sky- [DAY1]">DAY1</a> <small class="date">- 2024/07/27(土)</small></li>
+	<li><a href="./shinycolors_livefun_day2.html" title="THE IDOLM@STER SHINY COLORS LIVE FUN!! -Beyond the Blue sky- [DAY2]">DAY2</a> <small class="date">- 2024/07/28(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="6,nijisanji" class="mb-3"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> <a href="./valz_ds_gekitekienbu.html">VΔLZ×DRAMATIC STARS COLLABORATION LIVE 〜劇的演舞〜</a> <small class="date">- 2024/07/21(日)</small>
+ <span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span>
+ <span class="visually-hidden">(</span><span title="にじさんじ" class="badge small bg-nijisanji">にじさんじ</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="6">THE IDOLM@STER SideM 9th STAGE 〜MIR@-CIRCLE CRESCENDO〜 <span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./sidem_9th_day1.html" title="THE IDOLM@STER SideM 9th STAGE 〜MIR@-CIRCLE CRESCENDO〜 DAY1">DAY1</a> <small class="date">(2024/07/13)</small></li>
+	<li><a href="./sidem_9th_day2.html" title="THE IDOLM@STER SideM 9th STAGE 〜MIR@-CIRCLE CRESCENDO〜 DAY2">DAY2</a> <small class="date">(2024/07/14)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="6"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> 315 Production presents F@NTASTIC COMBINATION LIVE 〜HEARTMAKER!!!!〜 <small class="date">- 2024/04/13(土)・14(日)</small> <span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./sidem_fclive_hm_sw.html" title="315 Production presents F@NTASTIC COMBINATION LIVE 〜HEARTMAKER!!!!〜 SPIRIT&#39;S WAY">SPIRIT&#39;S WAY</a> <small class="date">(DAY1夜・DAY2昼)</small></li>
+	<li><a href="./sidem_fclive_hm_bm.html" title="315 Production presents F@NTASTIC COMBINATION LIVE 〜HEARTMAKER!!!!〜 BELIEVER&#39;S MATCH">BELIEVER&#39;S MATCH</a> <small class="date">(DAY1昼・DAY2夜)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="10" class="mb-3"><a href="./valiv_the_last_statement.html">PROJECT IM@S vα-liv LIVE -THE LAST STATEMENT!!!-</a> <small class="date">- 2024/03/31(日)</small>
+ <span class="visually-hidden">(</span><span title="vα-liv" class="badge small bg-imas-brand-valiv">ヴイアラ</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="1" class="mb-3"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> <a href="./idolmaster_twinlive_halfmoon.html">菊地真・萩原雪歩 twin live &quot;はんげつであえたら&quot;</a> <small class="date">- 2024/03/16(土)・17(日)</small>
+ <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="8">THE IDOLM@STER SHINY COLORS 6thLIVE TOUR Come and Unite! <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./shinycolors_6th_bb_day1.html" title="THE IDOLM@STER SHINY COLORS 6thLIVE TOUR Come and Unite! Brilliant Blooms (大阪公演) [DAY1]">Brilliant Blooms (大阪公演) DAY1</a> <small class="date">- 2024/03/02(土)</small></li>
+	<li><a href="./shinycolors_6th_bb_day2.html" title="THE IDOLM@STER SHINY COLORS 6thLIVE TOUR Come and Unite! Brilliant Blooms (大阪公演) [DAY2]">Brilliant Blooms (大阪公演) DAY2</a> <small class="date">- 2024/03/03(日)</small></li>
+	<li><a href="./shinycolors_6th_ff_day1.html" title="THE IDOLM@STER SHINY COLORS 6thLIVE TOUR Come and Unite! Fantastic Fireworks (横浜公演) [DAY1]">Fantastic Fireworks (横浜公演) DAY1</a> <small class="date">- 2024/04/20(土)</small></li>
+	<li><a href="./shinycolors_6th_ff_day2.html" title="THE IDOLM@STER SHINY COLORS 6thLIVE TOUR Come and Unite! Fantastic Fireworks (横浜公演) [DAY2]">Fantastic Fireworks (横浜公演) DAY2</a> <small class="date">- 2024/04/21(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="4">THE IDOLM@STER CINDERELLA GIRLS UNIT LIVE TOUR ConnecTrip! <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./cinderella_ut_yamagata.html" title="THE IDOLM@STER CINDERELLA GIRLS UNIT LIVE TOUR ConnecTrip! 山形公演">山形公演</a> <small class="date">- 2024/02/03(土)</small></li>
+	<li><a href="./cinderella_ut_iwate.html" title="THE IDOLM@STER CINDERELLA GIRLS UNIT LIVE TOUR ConnecTrip! 岩手公演">岩手公演</a> <small class="date">- 2024/03/10(日)</small></li>
+	<li><a href="./cinderella_ut_osaka.html" title="THE IDOLM@STER CINDERELLA GIRLS UNIT LIVE TOUR ConnecTrip! 大阪公演">大阪公演</a> <small class="date">- 2024/04/06(土)</small></li>
+	<li><a href="./cinderella_ut_fukuoka.html" title="THE IDOLM@STER CINDERELLA GIRLS UNIT LIVE TOUR ConnecTrip! 福岡公演">福岡公演</a> <small class="date">- 2024/05/19(日)</small></li>
+	<li><a href="./cinderella_ut_tokyo.html" title="THE IDOLM@STER CINDERELLA GIRLS UNIT LIVE TOUR ConnecTrip! 東京公演">東京公演</a> <small class="date">- 2024/06/01(土)</small></li>
+	<li><a href="./cinderella_ut_ishikawa.html" title="THE IDOLM@STER CINDERELLA GIRLS UNIT LIVE TOUR ConnecTrip! 石川公演">石川公演</a> <small class="date">- 2024/06/16(日)</small></li>
+	</ul>
+</li>
+</ul>
+</div>
+
+<div class="section">
+<h2>2023年</h2>
+<ul>
+<li data-brand-ids="4,5,8,sunshine,nijigasaki,superstar,hasunosora,musical,hololive,nijisanji">異次元フェス アイドルマスター⭐❤️ラブライブ！歌合戦 <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span>
+ <span class="visually-hidden">/</span> <span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span>
+ <span class="visually-hidden">/</span> <span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span>
+ <span class="visually-hidden">(ラブライブ！：</span><span title="ラブライブ！サンシャイン!!" class="badge small bg-lovelive-brand-sunshine">サンシャイン!!</span>
+ <span class="visually-hidden">/</span> <span title="ラブライブ！虹ヶ咲学園スクールアイドル同好会" class="badge small bg-lovelive-brand-nijigasaki">ニジガク</span>
+ <span class="visually-hidden">/</span> <span title="ラブライブ！スーパースター!!" class="badge small bg-lovelive-brand-superstar">スーパースター!!</span>
+ <span class="visually-hidden">/</span> <span title="ラブライブ！蓮ノ空女学院スクールアイドルクラブ" class="badge small bg-lovelive-brand-hasunosora">蓮ノ空</span>
+ <span class="visually-hidden">/</span> <span title="ラブライブ！スクールアイドルミュージカル" class="badge small bg-lovelive-brand-musical">ミュージカル</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> <a href="./ijigenfes_utagassen_eve.html" title="異次元フェス アイドルマスター⭐❤️ラブライブ！歌合戦 開催記念番組 MUSIC BIGBANG!">MUSIC BIGBANG!</a> <small class="date">- 2023/12/08(金)</small> <span class="visually-hidden">(</span><span class="badge small bg-hololive">ホロライブ</span> <span class="visually-hidden">/</span> <span class="badge small bg-nijisanji">にじさんじ</span><span class="visually-hidden">)</span></li>
+	<li><a href="./ijigenfes_utagassen_day1.html" title="異次元フェス アイドルマスター⭐❤️ラブライブ！歌合戦 [DAY1]">DAY1</a> <small class="date">- 2023/12/09(土)</small></li>
+	<li><a href="./ijigenfes_utagassen_day2.html" title="異次元フェス アイドルマスター⭐❤️ラブライブ！歌合戦 [DAY2]">DAY2</a> <small class="date">- 2023/12/10(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="6"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> 315 Production presents F@NTASTIC COMBINATION LIVE 〜CONNECTIME!!!!〜 <small class="date">- 2023/11/18(土)・19(日)</small> <span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./sidem_fclive_ct_da.html" title="315 Production presents F@NTASTIC COMBINATION LIVE 〜CONNECTIME!!!!〜 DIMENSION ARROW">DIMENSION ARROW</a></li>
+	<li><a href="./sidem_fclive_ct_hc.html" title="315 Production presents F@NTASTIC COMBINATION LIVE 〜CONNECTIME!!!!〜 共鳴和音(harmony chord)">共鳴和音(harmony chord)</a></li>
+	</ul>
+</li>
+<li data-brand-ids="6">THE IDOLM@STER SideM 8th STAGE 〜ALL H@NDS TOGETHER〜 <span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./sidem_8th_stage_day1.html" title="THE IDOLM@STER SideM 8th STAGE 〜ALL H@NDS TOGETHER〜 DAY1 &quot;CATCH MY H@NDS&quot;">DAY1 &quot;CATCH MY H@NDS&quot</a> <small class="date">- 2023/10/28(土)</small></li>
+	<li><a href="./sidem_8th_stage_day2.html" title="THE IDOLM@STER SideM 8th STAGE 〜ALL H@NDS TOGETHER〜 DAY2 &quot;CLAP OUR H@NDS&quot;">DAY2 &quot;CLAP OUR H@NDS&quot</a> <small class="date">- 2023/10/29(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="8">THE IDOLM@STER SHINY COLORS 5.5th Anniversary LIVE 星が見上げた空 <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./shinycolors_5_5th_day1.html" title="THE IDOLM@STER SHINY COLORS 5.5th Anniversary LIVE 星が見上げた空 [DAY1]">DAY1</a> <small class="date">- 2023/10/21(土)</small></li>
+	<li><a href="./shinycolors_5_5th_day2.html" title="THE IDOLM@STER SHINY COLORS 5.5th Anniversary LIVE 星が見上げた空 [DAY2]">DAY2</a> <small class="date">- 2023/10/22(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="4">THE IDOLM@STER CINDERELLA GIRLS Shout out Live!!! <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./cinderella_cg_shoutoutlive_day1.html" title="THE IDOLM@STER CINDERELLA GIRLS Shout out Live!!! [DAY1]">DAY1</a> <small class="date">- 2023/09/09(土)</small></li>
+	<li><a href="./cinderella_cg_shoutoutlive_day2.html" title="THE IDOLM@STER CINDERELLA GIRLS Shout out Live!!! [DAY2]">DAY2</a> <small class="date">- 2023/09/10(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="8">283PRODUCTION SOLO PERFORMANCE LIVE「我儘なまま」 <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./shinycolors_283production_solo_day1.html" title="283PRODUCTION SOLO PERFORMANCE LIVE「我儘なまま」 [DAY1]">DAY1</a> <small class="date">- 2023/07/22(土)</small></li>
+	<li><a href="./shinycolors_283production_solo_day2.html" title="283PRODUCTION SOLO PERFORMANCE LIVE「我儘なまま」 [DAY2]">DAY2</a> <small class="date">- 2023/07/23(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="6"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> 315 Production presents F@NTASTIC COMBINATION LIVE 〜BRAINPOWER!!〜 <span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./sidem_fclive_bp.html" title="315 Production presents F@NTASTIC COMBINATION LIVE 〜BRAINPOWER!!〜 神奈川公演">神奈川公演</a> <small class="date">- 2023/07/09(日)</small></li>
+	<li><a href="./sidem_fclive_bp2.html" title="315 Production presents F@NTASTIC COMBINATION LIVE 〜BRAINPOWER!!〜 幕張公演">幕張公演</a> <small class="date">- 2023/11/17(金)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="1,5" class="mb-3"><span class="visually-hidden">【</span><span title="&quot;MORE RE@LITY&quot;形式のイベント" class="badge small bg-imas-mr-project">MR</span><span class="visually-hidden">】</span> <a href="./idolmaster_imas765ml_dg.html">765 MILLIONSTARS LIVE 2023 Dreamin&apos; Groove</a> <small class="date">- 2023/07/01(土)・02(日)</small>
+	<span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span> <span class="visually-hidden">/</span> <span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="4">THE IDOLM@STER CINDERELLA GIRLS 燿城夜祭 -かがやきよまつり- <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./cinderella_cg_kagayaki_yomatsuri_day1.html" title="THE IDOLM@STER CINDERELLA GIRLS 燿城夜祭 -かがやきよまつり- [DAY1]">DAY1</a> <small class="date">- 2023/06/10(土)</small></li>
+	<li><a href="./cinderella_cg_kagayaki_yomatsuri_day2.html" title="THE IDOLM@STER CINDERELLA GIRLS 燿城夜祭 -かがやきよまつり- [DAY2]">DAY2</a> <small class="date">- 2023/06/11(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="5">THE IDOLM@STER MILLION LIVE! 10thLIVE TOUR <span class="visually-hidden">(</span><span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./million_10th_act1_day1.html" title="THE IDOLM@STER MILLION LIVE! 10thLIVE TOUR Act-1 H@PPY 4 YOU! [DAY1]">Act-1 (SSA公演) DAY1</a> <small class="date">- 2023/04/22(土)</small></li>
+	<li><a href="./million_10th_act1_day2.html" title="THE IDOLM@STER MILLION LIVE! 10thLIVE TOUR Act-1 H@PPY 4 YOU! [DAY2]">Act-1 (SSA公演) DAY2</a> <small class="date">- 2023/04/23(日)</small></li>
+	<li><a href="./million_10th_act2_day1.html" title="THE IDOLM@STER MILLION LIVE! 10thLIVE TOUR Act-2 5 TO SP@RKLE!! [DAY1]">Act-2 (名古屋公演) DAY1</a> <small class="date">- 2023/07/29(土)</small></li>
+	<li><a href="./million_10th_act2_day2.html" title="THE IDOLM@STER MILLION LIVE! 10thLIVE TOUR Act-2 5 TO SP@RKLE!! [DAY2]">Act-2 (名古屋公演) DAY2</a> <small class="date">- 2023/07/30(日)</small></li>
+	<li><a href="./million_10th_act3_day1.html" title="THE IDOLM@STER MILLION LIVE! 10thLIVE TOUR Act-3 R@ISE THE DREAM!!! [DAY1]">Act-3 (北九州公演) DAY1</a> <small class="date">- 2023/11/04(土)</small></li>
+	<li><a href="./million_10th_act3_day2.html" title="THE IDOLM@STER MILLION LIVE! 10thLIVE TOUR Act-3 R@ISE THE DREAM!!! [DAY2]">Act-3 (北九州公演) DAY2</a> <small class="date">- 2023/11/05(日)</small></li>
+	<li><a href="./million_10th_act4_day1.html" title="THE IDOLM@STER MILLION LIVE! 10thLIVE TOUR Act-4 MILLION THE@TER!!!! [DAY1]">Act-4 (横浜公演) DAY1</a> <small class="date">- 2024/02/24(土)</small></li>
+	<li><a href="./million_10th_act4_day2.html" title="THE IDOLM@STER MILLION LIVE! 10thLIVE TOUR Act-4 MILLION THE@TER!!!! [DAY2]">Act-4 (横浜公演) DAY2</a> <small class="date">- 2024/02/25(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="8">THE IDOLM@STER SHINY COLORS 5thLIVE If I_wings. <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./shinycolors_5th_day1.html" title="THE IDOLM@STER SHINY COLORS 5thLIVE If I_wings. [DAY1]">DAY1</a> <small class="date">- 2023/03/18(土)</small></li>
+	<li><a href="./shinycolors_5th_day2.html" title="THE IDOLM@STER SHINY COLORS 5thLIVE If I_wings. [DAY2]">DAY2</a> <small class="date">- 2023/03/19(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="1,4,5,6,8,9">THE IDOLM@STER M@STERS OF IDOL WORLD!!!!! 2023 <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span>
+ <span class="visually-hidden">/</span> <span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span>
+ <span class="visually-hidden">/</span> <span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span>
+ <span class="visually-hidden">/</span> <span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span>
+ <span class="visually-hidden">/</span> <span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span>
+ <span class="visually-hidden">/</span> <span title="961プロダクション" class="badge small bg-imas-brand-961pro">961プロ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./idolmaster_idolworld2023_day1.html" title="THE IDOLM@STER M@STERS OF IDOL WORLD!!!!! 2023 [DAY1]">DAY1</a> <small class="date">- 2023/02/11(土)</small></li>
+	<li><a href="./idolmaster_idolworld2023_day2.html" title="THE IDOLM@STER M@STERS OF IDOL WORLD!!!!! 2023 [DAY2]">DAY2</a> <small class="date">- 2023/02/12(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="5">THE IDOLM@STER MILLION LIVE! 9thLIVE ChoruSp@rkle!! <span class="visually-hidden">(</span><span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./million_9th_day1.html" title="THE IDOLM@STER MILLION LIVE! 9thLIVE ChoruSp@rkle!! [DAY1]">DAY1</a> <small class="date">- 2023/01/14(土)</small></li>
+	<li><a href="./million_9th_day2.html" title="THE IDOLM@STER MILLION LIVE! 9thLIVE ChoruSp@rkle!! [DAY2]">DAY2</a> <small class="date">- 2023/01/15(日)</small></li>
+	</ul>
+</li>
+</ul>
+</div>
+
+<div class="section">
+<h2>2022年</h2>
+<ul>
+<li data-brand-ids="4">THE IDOLM@STER CINDERELLA GIRLS Twinkle LIVE Constellation Gradation <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./cinderella_cg_constellation_gradation_day1.html" title="THE IDOLM@STER CINDERELLA GIRLS Twinkle LIVE Constellation Gradation [DAY1]">DAY1</a> <small class="date">- 2022/11/26(土)</small></li>
+	<li><a href="./cinderella_cg_constellation_gradation_day2.html" title="THE IDOLM@STER CINDERELLA GIRLS Twinkle LIVE Constellation Gradation [DAY2]">DAY2</a> <small class="date">- 2022/11/27(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="1,4,5,6,8">THE IDOLM@STER ORCHESTRA CONCERT 〜SYMPHONY OF FIVE STARS!!!!!〜 <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span>
+ <span class="visually-hidden">/</span> <span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span>
+ <span class="visually-hidden">/</span> <span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span>
+ <span class="visually-hidden">/</span> <span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span>
+ <span class="visually-hidden">/</span> <span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./idolmaster_orchestra_concert_2022_day1.html" title="THE IDOLM@STER ORCHESTRA CONCERT 〜SYMPHONY OF FIVE STARS!!!!!〜 [DAY1]">DAY1</a> <small class="date">- 2022/11/12(土)</small></li>
+	<li><a href="./idolmaster_orchestra_concert_2022_day2.html" title="THE IDOLM@STER ORCHESTRA CONCERT 〜SYMPHONY OF FIVE STARS!!!!!〜 [DAY2]">DAY2</a> <small class="date">- 2022/11/13(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="6">THE IDOLM@STER SideM 7th STAGE 〜GROW &amp; GLOW〜 <span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./sidem_7th_starlightsignal_day1.html" title="THE IDOLM@STER SideM 7th STAGE 〜GROW &amp; GLOW〜 STARLIGHT SIGN@L [DAY1]">STARLIGHT SIGN@L (愛知公演) DAY1</a> <small class="date">- 2022/10/01(土)</small></li>
+	<li><a href="./sidem_7th_starlightsignal_day2.html" title="THE IDOLM@STER SideM 7th STAGE 〜GROW &amp; GLOW〜 STARLIGHT SIGN@L [DAY2]">STARLIGHT SIGN@L (愛知公演) DAY2</a> <small class="date">- 2022/10/02(日)</small></li>
+	<li><a href="./sidem_7th_sunlightsignal_day1.html" title="THE IDOLM@STER SideM 7th STAGE 〜GROW &amp; GLOW〜SUNLIGHT SIGN@L [DAY1]">SUNLIGHT SIGN@L (横浜公演) DAY1</a> <small class="date">- 2022/12/03(土)</small></li>
+	<li><a href="./sidem_7th_sunlightsignal_day2.html" title="THE IDOLM@STER SideM 7th STAGE 〜GROW &amp; GLOW〜SUNLIGHT SIGN@L [DAY2]">SUNLIGHT SIGN@L (横浜公演) DAY2</a> <small class="date">- 2022/12/04(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="4">THE IDOLM@STER CINDERELLA GIRLS LIKE4LIVE #cg_ootd <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./cinderella_cg_like4live_ootd_day1.html" title="THE IDOLM@STER CINDERELLA GIRLS LIKE4LIVE #cg_ootd [DAY1]">DAY1</a> <small class="date">- 2022/09/03(土)</small></li>
+	<li><a href="./cinderella_cg_like4live_ootd_day2.html" title="THE IDOLM@STER CINDERELLA GIRLS LIKE4LIVE #cg_ootd [DAY2]">DAY2</a> <small class="date">- 2022/09/04(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="8">シャニマス初の対バンライブ 283PRODUCTION UNIT LIVE <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./shinycolors_283unitlive_setsunabeat_day1.html" title="シャニマス初の対バンライブ 283PRODUCTION UNIT LIVE SETSUNA BEAT [DAY1]">SETSUNA BEAT (有明公演) DAY1</a> <small class="date">- 2022/08/13(土)</small></li>
+	<li><a href="./shinycolors_283unitlive_setsunabeat_day2.html" title="シャニマス初の対バンライブ 283PRODUCTION UNIT LIVE SETSUNA BEAT [DAY2]">SETSUNA BEAT (有明公演) DAY2</a> <small class="date">- 2022/08/14(日)</small></li>
+	<li><a href="./shinycolors_283unitlive_mugenbeat_day1.html" title="シャニマス初の対バンライブ 283PRODUCTION UNIT LIVE MUGEN BEAT [DAY1]">MUGEN BEAT (武蔵野公演) DAY1</a> <small class="date">- 2022/10/22(土)</small></li>
+	<li><a href="./shinycolors_283unitlive_mugenbeat_day2.html" title="シャニマス初の対バンライブ 283PRODUCTION UNIT LIVE MUGEN BEAT [DAY2]">MUGEN BEAT (武蔵野公演) DAY2</a> <small class="date">- 2022/10/23(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="1">THE IDOLM@STER 765PRO ALLSTARS LIVE SUNRICH COLORFUL <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./765as_sunrich_day1.html" title="THE IDOLM@STER 765PRO ALLSTARS LIVE SUNRICH COLORFUL [DAY1]">DAY1</a> <small class="date">- 2022/07/09(土)</small></li>
+	<li><a href="./765as_sunrich_day2.html" title="THE IDOLM@STER 765PRO ALLSTARS LIVE SUNRICH COLORFUL [DAY2]">DAY2</a> <small class="date">- 2022/07/10(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="1,4,5,6,8,sunshine,nijigasaki,superstar,denonbu">バンダイナムコエンターテインメントフェスティバル2nd <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span>
+ <span class="visually-hidden">/</span> <span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span>
+ <span class="visually-hidden">/</span> <span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span>
+ <span class="visually-hidden">/</span> <span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span>
+ <span class="visually-hidden">/</span> <span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span>
+ <span class="visually-hidden">(その他の参加：</span><span title="ラブライブ！サンシャイン!!" class="badge small bg-lovelive-brand-sunshine">サンシャイン!!</span>
+ <span class="visually-hidden">/</span> <span title="ラブライブ！虹ヶ咲学園スクールアイドル同好会" class="badge small bg-lovelive-brand-nijigasaki">ニジガク</span>
+ <span class="visually-hidden">/</span> <span title="ラブライブ！スーパースター!!" class="badge small bg-lovelive-brand-superstar">スーパースター!!</span>
+ <span class="visually-hidden">/</span> <span title="電音部" class="badge small bg-asobinotes-brand-denonbu">電音部</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./bnef_2nd_day1.html" title="バンダイナムコエンターテインメントフェスティバル2nd [DAY1]">DAY1</a> <small class="date">- 2022/05/14(土)</small></li>
+	<li><a href="./bnef_2nd_day2.html" title="バンダイナムコエンターテインメントフェスティバル2nd [DAY2]">DAY2</a> <small class="date">- 2022/05/15(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="8">THE IDOLM@STER SHINY COLORS 4thLIVE 空は澄み、今を越えて。 <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./shinycolors_4th_day1.html" title="THE IDOLM@STER SHINY COLORS 4thLIVE 空は澄み、今を越えて。 [DAY1]">DAY1</a> <small class="date">- 2022/04/23(土)</small></li>
+	<li><a href="./shinycolors_4th_day2.html" title="THE IDOLM@STER SHINY COLORS 4thLIVE 空は澄み、今を越えて。 [DAY2]">DAY2</a> <small class="date">- 2022/04/24(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="6">THE IDOLM@STER SideM PRODUCER MEETING BE@T OF PASSION FESTIVAL!!! <span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./sidem_pm2022_day1.html" title="THE IDOLM@STER SideM PRODUCER MEETING BE@T OF PASSION FESTIVAL!!! [DAY1]">DAY1</a> <small class="date">- 2022/03/12(土)</small></li>
+	<li><a href="./sidem_pm2022_day2.html" title="THE IDOLM@STER SideM PRODUCER MEETING BE@T OF PASSION FESTIVAL!!! [DAY2]">DAY2</a> <small class="date">- 2022/03/13(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="5">THE IDOLM@STER MILLION LIVE! 8thLIVE Twelw@ve <span class="visually-hidden">(</span><span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./million_8th_day1.html" title="THE IDOLM@STER MILLION LIVE! 8thLIVE Twelw@ve [DAY1]">DAY1</a> <small class="date">- 2022/02/12(土)</small></li>
+	<li><a href="./million_8th_day2.html" title="THE IDOLM@STER MILLION LIVE! 8thLIVE Twelw@ve [DAY2]">DAY2</a> <small class="date">- 2022/02/13(日)</small></li>
+	</ul>
+</li>
+</ul>
+</div>
+
+<div class="section">
+<h2>2021年</h2>
+<ul>
+<li data-brand-ids="8">THE IDOLM@STER SHINY COLORS Xmas Party -Silent night- <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./shinycolors_christmas_day1.html" title="THE IDOLM@STER SHINY COLORS Xmas Party -Silent night- [DAY1]">DAY1</a> <small class="date">- 2021/12/18(土)</small></li>
+	<li><a href="./shinycolors_christmas_day2.html" title="THE IDOLM@STER SHINY COLORS Xmas Party -Silent night- [DAY2]">DAY2</a> <small class="date">- 2021/12/19(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="6">THE IDOLM@STER SideM 6thLIVE TOUR 〜NEXT DESTIN@TION!〜 <span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./sidem_6th_kobe_day1.html" title="THE IDOLM@STER SideM 6thLIVE TOUR 〜NEXT DESTIN@TION!〜 Side KOBE (神戸公演) [DAY1]">Side KOBE (神戸公演) DAY1</a> <small class="date">- 2021/11/06(土)</small></li>
+	<li><a href="./sidem_6th_kobe_day2.html" title="THE IDOLM@STER SideM 6thLIVE TOUR 〜NEXT DESTIN@TION!〜 Side KOBE (神戸公演) [DAY2]">Side KOBE (神戸公演) DAY2</a> <small class="date">- 2021/11/07(日)</small></li>
+	<li><a href="./sidem_6th_tokyo_day1.html" title="THE IDOLM@STER SideM 6thLIVE TOUR 〜NEXT DESTIN@TION!〜 Side TOKYO (東京公演) [DAY1]">Side TOKYO (東京公演) DAY1</a> <small class="date">- 2022/01/08(土)</small></li>
+	<li><a href="./sidem_6th_tokyo_day2.html" title="THE IDOLM@STER SideM 6thLIVE TOUR 〜NEXT DESTIN@TION!〜 Side TOKYO (東京公演) [DAY2]">Side TOKYO (東京公演) DAY2</a> <small class="date">- 2022/01/09(日)</small></li>
+	<li><a href="./sidem_6th_hokkaido_day1.html" title="THE IDOLM@STER SideM 6thLIVE TOUR 〜NEXT DESTIN@TION!〜 Side HOKKAIDO (北海道公演) [DAY1]">Side HOKKAIDO (北海道公演) DAY1</a> <small class="date">- 2022/04/16(土)</small></li>
+	<li><a href="./sidem_6th_hokkaido_day2.html" title="THE IDOLM@STER SideM 6thLIVE TOUR 〜NEXT DESTIN@TION!〜 Side HOKKAIDO (北海道公演) [DAY2]">Side HOKKAIDO (北海道公演) DAY2</a> <small class="date">- 2022/04/17(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="8">THE IDOLM@STER SHINY COLORS 283フェス 2021 Happy Buffet! <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./shinycolors_283fes_day1.html" title="THE IDOLM@STER SHINY COLORS 283フェス 2021 Happy Buffet! [DAY1]">DAY1</a> <small class="date">- 2021/10/23(土)</small></li>
+	<li><a href="./shinycolors_283fes_day2.html" title="THE IDOLM@STER SHINY COLORS 283フェス 2021 Happy Buffet! [DAY2]">DAY2</a> <small class="date">- 2021/10/24(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="4">THE IDOLM@STER CINDERELLA GIRLS 10th ANNIVERSARY M@GICAL WONDERLAND TOUR!!! <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./cinderella10th_fukuoka_day1.html" title="THE IDOLM@STER CINDERELLA GIRLS 10th ANNIVERSARY M@GICAL WONDERLAND TOUR!!! MerryMaerchen Land (福岡公演) [DAY1]">福岡公演DAY1</a> <small class="date">- 2021/10/02(土)</small></li>
+	<li><a href="./cinderella10th_fukuoka_day2.html" title="THE IDOLM@STER CINDERELLA GIRLS 10th ANNIVERSARY M@GICAL WONDERLAND TOUR!!! MerryMaerchen Land (福岡公演) [DAY2]">福岡公演DAY2</a> <small class="date">- 2021/10/03(日)</small></li>
+	<li><a href="./cinderella10th_chiba_day1.html" title="THE IDOLM@STER CINDERELLA GIRLS 10th ANNIVERSARY M@GICAL WONDERLAND TOUR!!! Celebration Land (千葉公演) [DAY1]">千葉公演DAY1</a> <small class="date">- 2021/11/27(土)</small></li>
+	<li><a href="./cinderella10th_chiba_day2.html" title="THE IDOLM@STER CINDERELLA GIRLS 10th ANNIVERSARY M@GICAL WONDERLAND TOUR!!! Celebration Land (千葉公演) [DAY2]">千葉公演DAY2</a> <small class="date">- 2021/11/28(日)</small></li>
+	<li><a href="./cinderella10th_aichi_day1.html" title="THE IDOLM@STER CINDERELLA GIRLS 10th ANNIVERSARY M@GICAL WONDERLAND TOUR!!! CosmoStar Land (愛知公演) [DAY1]">愛知公演DAY1</a> <small class="date">- 2021/12/25(土)</small></li>
+	<li><a href="./cinderella10th_aichi_day2.html" title="THE IDOLM@STER CINDERELLA GIRLS 10th ANNIVERSARY M@GICAL WONDERLAND TOUR!!! CosmoStar Land (愛知公演) [DAY2]">愛知公演DAY2</a> <small class="date">- 2021/12/26(日)</small></li>
+	<li><a href="./cinderella10th_okinawa_day1.html" title="THE IDOLM@STER CINDERELLA GIRLS 10th ANNIVERSARY M@GICAL WONDERLAND TOUR!!! Tropical Land [DAY1]">&quot;Tropical Land&quot;公演DAY1</a> <small class="date">- 2022/01/29(土)</small></li>
+	<li><a href="./cinderella10th_okinawa_day2.html" title="THE IDOLM@STER CINDERELLA GIRLS 10th ANNIVERSARY M@GICAL WONDERLAND TOUR!!! Tropical Land [DAY2]">&quot;Tropical Land&quot;公演DAY2</a> <small class="date">- 2022/01/30(日)</small></li>
+	<li><a href="./cinderella10th_final_day1.html" title="THE IDOLM@STER CINDERELLA GIRLS 10th ANNIVERSARY M@GICAL WONDERLAND!!! (ツアーファイナル公演) [DAY1]">ファイナル公演DAY1</a> <small class="date">- 2022/04/02(土)</small></li>
+	<li><a href="./cinderella10th_final_day2.html" title="THE IDOLM@STER CINDERELLA GIRLS 10th ANNIVERSARY M@GICAL WONDERLAND!!! (ツアーファイナル公演) [DAY2]">ファイナル公演DAY2</a> <small class="date">- 2022/04/03(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="5">THE IDOLM@STER MILLION LIVE! 7thLIVE Q@MP FLYER!!! Reburn <span class="visually-hidden">(</span><span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./million7th0522.html" title="THE IDOLM@STER MILLION LIVE! 7thLIVE Q@MP FLYER!!! Reburn [DAY1]">DAY1</a> <small class="date">- 2021/05/22(土)</small></li>
+	<li><a href="./million7th0523.html" title="THE IDOLM@STER MILLION LIVE! 7thLIVE Q@MP FLYER!!! Reburn [DAY2]">DAY2</a> <small class="date">- 2021/05/23(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="8">THE IDOLM@STER SHINY COLORS 3rdLIVE TOUR PIECE ON PLANET <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./shinycolors3rd0403.html" title="THE IDOLM@STER SHINY COLORS 3rdLIVE TOUR PIECE ON PLANET / NAGOYA [DAY1]">名古屋公演DAY1</a> <small class="date">- 2021/04/03(土)</small></li>
+	<li><a href="./shinycolors3rd0404.html" title="THE IDOLM@STER SHINY COLORS 3rdLIVE TOUR PIECE ON PLANET / NAGOYA [DAY2]">名古屋公演DAY2</a> <small class="date">- 2021/04/04(日)</small></li>
+	<li><a href="./shinycolors3rd0424.html" title="THE IDOLM@STER SHINY COLORS 3rdLIVE TOUR PIECE ON PLANET / TOKYO [DAY1]">東京公演DAY1</a> <small class="date">- 2021/04/24(土)</small></li>
+	<li><a href="./shinycolors3rd0425.html" title="THE IDOLM@STER SHINY COLORS 3rdLIVE TOUR PIECE ON PLANET / TOKYO [DAY2]">東京公演DAY2</a> <small class="date">- 2021/04/25(日)</small></li>
+	<li><a href="./shinycolors3rd0529.html" title="THE IDOLM@STER SHINY COLORS 3rdLIVE TOUR PIECE ON PLANET / FUKUOKA [DAY1]">福岡公演DAY1</a> <small class="date">- 2021/05/29(土)</small></li>
+	<li><a href="./shinycolors3rd0530.html" title="THE IDOLM@STER SHINY COLORS 3rdLIVE TOUR PIECE ON PLANET / FUKUOKA [DAY2]">福岡公演DAY2</a> <small class="date">- 2021/05/30(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="8">THE IDOLM@STER SHINY COLORS 2ndLIVE STEP INTO THE SUNSET SKY <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./shinycolors2nd0320.html" title="THE IDOLM@STER SHINY COLORS 2ndLIVE STEP INTO THE SUNSET SKY [DAY1]">DAY1</a> <small class="date">- 2021/03/20(土)</small></li>
+	<li><a href="./shinycolors2nd0321.html" title="THE IDOLM@STER SHINY COLORS 2ndLIVE STEP INTO THE SUNSET SKY [DAY2]">DAY2</a> <small class="date">- 2021/03/21(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="6">THE IDOLM@STER SideM PRODUCER MEETING WELCOME TO PLEASURE 315 G@RDEN!!! <span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./sidem20210313.html" title="THE IDOLM@STER SideM PRODUCER MEETING WELCOME TO PLEASURE 315 G@RDEN!!! [DAY1]">DAY1</a> <small class="date">- 2021/03/13(土)</small></li>
+	<li><a href="./sidem20210314.html" title="THE IDOLM@STER SideM PRODUCER MEETING WELCOME TO PLEASURE 315 G@RDEN!!! [DAY2]">DAY2</a> <small class="date">- 2021/03/14(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="4">THE IDOLM@STER CINDERELLA GIRLS Broadcast &amp; LIVE Happy New Yell !!! <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./cinderella_hny0109.html" title="THE IDOLM@STER CINDERELLA GIRLS Broadcast &amp; LIVE Happy New Yell !!! [DAY1]">DAY1</a> <small class="date">- 2021/01/09(土)</small></li>
+	<li><a href="./cinderella_hny0110.html" title="THE IDOLM@STER CINDERELLA GIRLS Broadcast &amp; LIVE Happy New Yell !!! [DAY2]">DAY2</a> <small class="date">- 2021/01/10(日)</small></li>
+	</ul>
+</li>
+</ul>
+</div>
+
+<div class="section">
+<h2>2020年</h2>
+<ul>
+<li data-brand-ids="8">THE IDOLM@STER SHINY COLORS MUSIC DAWN <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./shinycolors20201031.html" title="THE IDOLM@STER SHINY COLORS MUSIC DAWN [DAY1]">DAY1</a> <small class="date">- 2020/10/30(土)</small></li>
+	<li><a href="./shinycolors20201101.html" title="THE IDOLM@STER SHINY COLORS MUSIC DAWN [DAY2]">DAY2</a> <small class="date">- 2020/11/01(日)</small></li>
+	</ul>
+</li>
+</ul>
+</div>
+
+<div class="section">
+<h2>2019年</h2>
+<ul>
+<li data-brand-ids="1,2,4,5,6,8,sunshine">バンダイナムコエンターテインメントフェスティバル(2019) <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span>
+ <span class="visually-hidden">/</span> <span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span>
+ <span class="visually-hidden">/</span> <span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span>
+ <span class="visually-hidden">/</span> <span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span>
+ <span class="visually-hidden">/</span> <span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span>
+ <span class="visually-hidden">/</span> <span title="ゼノグラシア" class="badge small bg-imas-brand-xenoglossia">ゼノグラシア</span><span class="visually-hidden">)</span>
+ <span class="visually-hidden">(その他の参加：</span><span title="ラブライブ！サンシャイン!!" class="badge small bg-lovelive-brand-sunshine">サンシャイン!!</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./bnfes20191019.html" title="バンダイナムコエンターテインメントフェスティバル DAY1">DAY1</a> <small class="date">- 2019/10/19(土)</small></li>
+	<li><a href="./bnfes20191020.html" title="バンダイナムコエンターテインメントフェスティバル DAY2">DAY2</a> <small class="date">- 2019/10/20(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="4">THE IDOLM@STER CINDERELLA GIRLS 7thLIVE TOUR Special 3chord♪ <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./cinderella7th0903.html" title="THE IDOLM@STER CINDERELLA GIRLS 7thLIVE TOUR Special 3chord♪ 千葉公演1日目">千葉公演1日目</a> <small class="date">- 2019/09/03(火)</small></li>
+	<li><a href="./cinderella7th0904.html" title="THE IDOLM@STER CINDERELLA GIRLS 7thLIVE TOUR Special 3chord♪ 千葉公演2日目">千葉公演2日目</a> <small class="date">- 2019/09/04(水)</small></li>
+	<li><a href="./cinderella7th1109.html" title="THE IDOLM@STER CINDERELLA GIRLS 7thLIVE TOUR Special 3chord♪ 名古屋公演1日目">名古屋公演1日目</a> <small class="date">- 2019/11/09(土)</small></li>
+	<li><a href="./cinderella7th1110.html" title="THE IDOLM@STER CINDERELLA GIRLS 7thLIVE TOUR Special 3chord♪ 名古屋公演2日目">名古屋公演2日目</a> <small class="date">- 2019/11/10(日)</small></li>
+	<li><a href="./cinderella7th0215.html" title="THE IDOLM@STER CINDERELLA GIRLS 7thLIVE TOUR Special 3chord♪ 大阪公演1日目">大阪公演1日目</a> <small class="date">- 2020/02/15(土)</small></li>
+	<li><a href="./cinderella7th0216.html" title="THE IDOLM@STER CINDERELLA GIRLS 7thLIVE TOUR Special 3chord♪ 大阪公演2日目">大阪公演2日目</a> <small class="date">- 2020/02/16(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="8" class="mb-3"><a href="./shinycolors2019summer.html">THE IDOLM@STER SHINY COLORS SUMMER PARTY 2019</a> <small class="date">- 2019/08/18(日)</small>
+ <span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="4" class="mb-3"><a href="./cinderella2019fes.html">アイドルマスターシンデレラガールズ プロデューサーさん感謝祭 in 新木場スタジオコースト</a> <small class="date">- 2019/06/16(日)</small>
+ <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="6">THE IDOLM@STER SideM 4th STAGE 〜TRE@SURE GATE〜 <span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./sidem4th0511.html" title="THE IDOLM@STER SideM 4th STAGE 〜TRE@SURE GATE〜 DAY1 SMILE PASSPORT">DAY1 SMILE PASSPORT</a> <small class="date">- 2019/05/11(土)</small></li>
+	<li><a href="./sidem4th0512.html" title="THE IDOLM@STER SideM 4th STAGE 〜TRE@SURE GATE〜 DAY2 DREAM PASSPORT">DAY2 DREAM PASSPORT</a> <small class="date">- 2019/05/12(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="5">THE IDOLM@STER MILLION LIVE! 6thLIVE TOUR UNI-ON@IR!!!! <span class="visually-hidden">(</span><span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./million6th0427.html" title="THE IDOLM@STER MILLION LIVE! 6thLIVE TOUR UNI-ON@IR!!!! 仙台公演1日目">仙台公演1日目</a> <small class="date">- 2019/04/27(土)</small></li>
+	<li><a href="./million6th0428.html" title="THE IDOLM@STER MILLION LIVE! 6thLIVE TOUR UNI-ON@IR!!!! 仙台公演2日目">仙台公演2日目</a> <small class="date">- 2019/04/28(日)</small></li>
+	<li><a href="./million6th0518.html" title="THE IDOLM@STER MILLION LIVE! 6thLIVE TOUR UNI-ON@IR!!!! 神戸公演1日目">神戸公演1日目</a> <small class="date">- 2019/05/18(土)</small></li>
+	<li><a href="./million6th0519.html" title="THE IDOLM@STER MILLION LIVE! 6thLIVE TOUR UNI-ON@IR!!!! 神戸公演2日目">神戸公演2日目</a> <small class="date">- 2019/05/19(日)</small></li>
+	<li><a href="./million6th0629.html" title="THE IDOLM@STER MILLION LIVE! 6thLIVE TOUR UNI-ON@IR!!!! 福岡公演1日目">福岡公演1日目</a> <small class="date">- 2019/06/29(土)</small></li>
+	<li><a href="./million6th0630.html" title="THE IDOLM@STER MILLION LIVE! 6thLIVE TOUR UNI-ON@IR!!!! 福岡公演2日目">福岡公演2日目</a> <small class="date">- 2019/06/30(日)</small></li>
+	<li><a href="./million6th0921.html" title="THE IDOLM@STER MILLION LIVE! 6thLIVE TOUR UNI-ON@IR!!!! SSA公演1日目">SSA公演1日目</a> <small class="date">- 2019/09/21(土)</small></li>
+	<li><a href="./million6th0922.html" title="THE IDOLM@STER MILLION LIVE! 6thLIVE TOUR UNI-ON@IR!!!! SSA公演2日目">SSA公演2日目</a> <small class="date">- 2019/09/22(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="6">THE IDOLM@STER SideM PRODUCER MEETING 315 SP@RKLING TIME WITH ALL!!! <span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./sidem20190315.html" title="THE IDOLM@STER SideM PRODUCER MEETING 315 SP@RKLING TIME WITH ALL!!! [DAY1]">1日目</a> <small class="date">- 2019/03/15(金)</small></li>
+	<li><a href="./sidem20190316.html" title="THE IDOLM@STER SideM PRODUCER MEETING 315 SP@RKLING TIME WITH ALL!!! [DAY2]">2日目</a> <small class="date">- 2019/03/16(土)</small></li>
+	<li><a href="./sidem20190317.html" title="THE IDOLM@STER SideM PRODUCER MEETING 315 SP@RKLING TIME WITH ALL!!! [DAY3]">3日目</a> <small class="date">- 2019/03/17(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="8"><a href="./shinycolors1st0309.html" title="THE IDOLM@STER SHINY COLORS 1stLIVE FLY TO THE SHINY SKY 公演内容(全公演共通)">THE IDOLM@STER SHINY COLORS 1stLIVE FLY TO THE SHINY SKY</a> <small class="date">- 2019/03/09(土)・10(日)</small>
+	<span class="visually-hidden">(</span><span title="シャイニーカラーズ" class="badge small bg-imas-brand-shinycolors">シャニ</span><span class="visually-hidden">)</span></li>
+</ul>
+</div>
+
+<div class="section">
+<h2>2018年</h2>
+<ul>
+<li data-brand-ids="4">THE IDOLM@STER CINDERELLA GIRLS 6thLIVE MERRY-GO-ROUNDOME!!! <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./cinderella6th1110.html" title="THE IDOLM@STER CINDERELLA GIRLS 6thLIVE MERRY-GO-ROUNDOME!!! メットライフドーム(西武ドーム)公演1日目">メットライフドーム(西武ドーム)公演1日目</a> <small class="date">- 2018/11/10(土)</small></li>
+	<li><a href="./cinderella6th1111.html" title="THE IDOLM@STER CINDERELLA GIRLS 6thLIVE MERRY-GO-ROUNDOME!!! メットライフドーム(西武ドーム)公演2日目">メットライフドーム(西武ドーム)公演2日目</a> <small class="date">- 2018/11/11(日)</small></li>
+	<li><a href="./cinderella6th1201.html" title="THE IDOLM@STER CINDERELLA GIRLS 6thLIVE MERRY-GO-ROUNDOME!!! ナゴヤドーム公演1日目">ナゴヤドーム公演1日目</a> <small class="date">- 2018/12/01(土)</small></li>
+	<li><a href="./cinderella6th1202.html" title="THE IDOLM@STER CINDERELLA GIRLS 6thLIVE MERRY-GO-ROUNDOME!!! ナゴヤドーム公演2日目">ナゴヤドーム公演2日目</a> <small class="date">- 2018/12/02(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="4">THE IDOLM@STER CINDERELLA GIRLS SS3A Live Sound Booth♪ <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./cinderella_ss3a_day1.html" title="THE IDOLM@STER CINDERELLA GIRLS SS3A Live Sound Booth♪ 1日目">1日目</a> <small class="date">- 2018/09/08(土)</small></li>
+	<li><a href="./cinderella_ss3a_day2.html" title="THE IDOLM@STER CINDERELLA GIRLS SS3A Live Sound Booth♪ 2日目">2日目</a> <small class="date">- 2018/09/09(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="1,9">THE IDOLM@STER PRODUCER MEETING 2018 What is TOP!!!!!!!!!!!!!? <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span>
+ <span class="visually-hidden">/</span> <span title="961プロダクション" class="badge small bg-imas-brand-961pro">961プロ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./live20180804.html" title="THE IDOLM@STER PRODUCER MEETING 2018 What is TOP!!!!!!!!!!!!!? [DAY1]">1日目</a> <small class="date">- 2018/08/04(土)</small></li>
+	<li><a href="./live20180805.html" title="THE IDOLM@STER PRODUCER MEETING 2018 What is TOP!!!!!!!!!!!!!? [DAY2]">2日目</a> <small class="date">- 2018/08/05(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="5">THE IDOLM@STER MILLION LIVE! 5thLIVE BRAND NEW PERFORM@NCE!!! <span class="visually-hidden">(</span><span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./million5th0602.html" title="THE IDOLM@STER MILLION LIVE! 5thLIVE BRAND NEW PERFORM@NCE!!! 1日目">1日目</a> <small class="date">- 2018/06/02(土)</small></li>
+	<li><a href="./million5th0603.html" title="THE IDOLM@STER MILLION LIVE! 5thLIVE BRAND NEW PERFORM@NCE!!! 2日目">2日目</a> <small class="date">- 2018/06/03(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="6" class="mb-3"><a href="./sidem5star.html">THE IDOLM@STER SideM Five-Star Party!!</a> <small class="date">- 2018/05/20(日)</small>
+	<span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="4">THE IDOLM@STER CINDERELLA GIRLS Initial Mess@ge <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./cinderella_tw0407.html" title="THE IDOLM@STER CINDERELLA GIRLS Initial Mess@ge 1日目">1日目</a> <small class="date">- 2018/04/07(土)</small></li>
+	<li><a href="./cinderella_tw0408.html" title="THE IDOLM@STER CINDERELLA GIRLS Initial Mess@ge 2日目">2日目</a> <small class="date">- 2018/04/08(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="4">アイドルマスターシンデレラガールズ劇場 すぷりんぐふぇすてぃばる2018 <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./cingeki_20180303.html" title="アイドルマスターシンデレラガールズ劇場 すぷりんぐふぇすてぃばる2018 [DAY1]">1日目</a> <small class="date">- 2018/03/03(土)</small></li>
+	<li><a href="./cingeki_20180304.html" title="アイドルマスターシンデレラガールズ劇場 すぷりんぐふぇすてぃばる2018 [DAY2]">2日目</a> <small class="date">- 2018/03/04(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="6">THE IDOLM@STER SideM 3rdLIVE TOUR 〜GLORIOUS ST@GE!〜 <span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./sidem3rd0203.html" title="THE IDOLM@STER SideM 3rdLIVE TOUR 〜GLORIOUS ST@GE!〜 幕張公演1日目">幕張公演1日目</a> <small class="date">- 2018/02/03(土)</small></li>
+	<li><a href="./sidem3rd0204.html" title="THE IDOLM@STER SideM 3rdLIVE TOUR 〜GLORIOUS ST@GE!〜 幕張公演2日目">幕張公演2日目</a> <small class="date">- 2018/02/04(日)</small></li>
+	<li><a href="./sidem3rd0224.html" title="THE IDOLM@STER SideM 3rdLIVE TOUR 〜GLORIOUS ST@GE!〜 仙台公演1日目">仙台公演1日目</a> <small class="date">- 2018/02/24(土)</small></li>
+	<li><a href="./sidem3rd0225.html" title="THE IDOLM@STER SideM 3rdLIVE TOUR 〜GLORIOUS ST@GE!〜 仙台公演2日目">仙台公演2日目</a> <small class="date">- 2018/02/25(日)</small></li>
+	<li><a href="./sidem3rd0325.html" title="THE IDOLM@STER SideM 3rdLIVE TOUR 〜GLORIOUS ST@GE!〜 福岡公演">福岡公演</a> <small class="date">- 2018/03/25(日)</small></li>
+	<li><a href="./sidem3rd0428.html" title="THE IDOLM@STER SideM 3rdLIVE TOUR 〜GLORIOUS ST@GE!〜 静岡公演1日目">静岡公演1日目</a> <small class="date">- 2018/04/28(土)</small></li>
+	<li><a href="./sidem3rd0429.html" title="THE IDOLM@STER SideM 3rdLIVE TOUR 〜GLORIOUS ST@GE!〜 静岡公演2日目">静岡公演2日目</a> <small class="date">- 2018/04/29(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="1">THE IDOLM@STER ニューイヤーライブ!! 初星宴舞 <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./live20180106.html" title="THE IDOLM@STER ニューイヤーライブ!! 初星宴舞 1日目">1日目</a> <small class="date">- 2018/01/06(土)</small></li>
+	<li><a href="./live20180107.html" title="THE IDOLM@STER ニューイヤーライブ!! 初星宴舞 2日目">2日目</a> <small class="date">- 2018/01/07(日)</small></li>
+	</ul>
+</li>
+</ul>
+</div>
+
+<div class="section">
+<h2>2017年</h2>
+<ul>
+<li data-brand-ids="1,5">THE IDOLM@STER 765 MILLIONSTARS HOTCHPOTCH FESTIV@L!! (2017) <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span> <span class="visually-hidden">/</span> <span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./million_hpf1007.html" title="THE IDOLM@STER 765 MILLIONSTARS HOTCHPOTCH FESTIV@L!! (2017) [DAY1]">DAY1</a> <small class="date">- 2017/10/07(土)</small></li>
+	<li><a href="./million_hpf1008.html" title="THE IDOLM@STER 765 MILLIONSTARS HOTCHPOTCH FESTIV@L!! (2017) [DAY2]">DAY2</a> <small class="date">- 2017/10/08(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="4">THE IDOLM@STER CINDERELLA GIRLS 5thLIVE TOUR Serendipity Parade!!! <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./cinderella5th0513.html" title="THE IDOLM@STER CINDERELLA GIRLS 5thLIVE TOUR Serendipity Parade!!! 宮城公演(両日共通)">宮城公演</a> <small class="date">- 2017/05/13(土)・05/14(日)</small></li>
+	<li><a href="./cinderella5th0527.html" title="THE IDOLM@STER CINDERELLA GIRLS 5thLIVE TOUR Serendipity Parade!!! 石川公演1日目">石川公演1日目</a> <small class="date">- 2017/05/27(土)</small></li>
+	<li><a href="./cinderella5th0528.html" title="THE IDOLM@STER CINDERELLA GIRLS 5thLIVE TOUR Serendipity Parade!!! 石川公演2日目">石川公演2日目</a> <small class="date">- 2017/05/28(日)</small></li>
+	<li><a href="./cinderella5th0609.html" title="THE IDOLM@STER CINDERELLA GIRLS 5thLIVE TOUR Serendipity Parade!!! 大阪公演1日目">大阪公演1日目</a> <small class="date">- 2017/06/09(金)</small></li>
+	<li><a href="./cinderella5th0610.html" title="THE IDOLM@STER CINDERELLA GIRLS 5thLIVE TOUR Serendipity Parade!!! 大阪公演2日目">大阪公演2日目</a> <small class="date">- 2017/06/10(土)</small></li>
+	<li><a href="./cinderella5th0624.html" title="THE IDOLM@STER CINDERELLA GIRLS 5thLIVE TOUR Serendipity Parade!!! 静岡公演(両日共通)">静岡公演</a> <small class="date">- 2017/06/24(土)・06/25(日)</small></li>
+	<li><a href="./cinderella5th0708.html" title="THE IDOLM@STER CINDERELLA GIRLS 5thLIVE TOUR Serendipity Parade!!! 幕張公演(両日共通)">幕張公演</a> <small class="date">- 2017/07/08(土)・07/09(日)</small></li>
+	<li><a href="./cinderella5th0729.html" title="THE IDOLM@STER CINDERELLA GIRLS 5thLIVE TOUR Serendipity Parade!!! 福岡公演1日目">福岡公演1日目</a> <small class="date">- 2017/07/29(土)</small></li>
+	<li><a href="./cinderella5th0729.html" title="THE IDOLM@STER CINDERELLA GIRLS 5thLIVE TOUR Serendipity Parade!!! 福岡公演2日目">福岡公演2日目</a> <small class="date">- 2017/07/30(日)</small></li>
+	<li><a href="./cinderella5th0812.html" title="THE IDOLM@STER CINDERELLA GIRLS 5thLIVE TOUR Serendipity Parade!!! SSA公演1日目">SSA公演1日目</a> <small class="date">- 2017/08/12(土)</small></li>
+	<li><a href="./cinderella5th0813.html" title="THE IDOLM@STER CINDERELLA GIRLS 5thLIVE TOUR Serendipity Parade!!! SSA公演2日目">SSA公演2日目</a> <small class="date">- 2017/08/13(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="1,5">THE IDOLM@STER 765 MILLIONSTARS First Time in TAIWAN <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span> <span class="visually-hidden">/</span> <span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./million_tw0422.html" title="THE IDOLM@STER 765 MILLIONSTARS First Time in TAIWAN 1日目">1日目</a> <small class="date">- 2017/04/22(土)</small></li>
+	<li><a href="./million_tw0423.html" title="THE IDOLM@STER 765 MILLIONSTARS First Time in TAIWAN 2日目">2日目</a> <small class="date">- 2017/04/23(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="6" class="mb-3"><a href="./sidem_greeting_tour_2017.html">THE IDOLM@STER SideM GREETING TOUR 2017 〜BEYOND THE DREAM〜</a> <small class="date">- 2017/04/02(日)〜2017/06/17(土)</small>
+	<span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="5">THE IDOLM@STER MILLION LIVE! 4thLIVE TH@NK YOU for SMILE!! <span class="visually-hidden">(</span><span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./million4th0310.html" title="THE IDOLM@STER MILLION LIVE! 4thLIVE TH@NK YOU for SMILE!! DAY1 Sunshine Theater">DAY1 Sunshine Theater</a> <small class="date">- 2017/03/10(金)</small></li>
+	<li><a href="./million4th0311.html" title="THE IDOLM@STER MILLION LIVE! 4thLIVE TH@NK YOU for SMILE!! DAY2 BlueMoon Theater">DAY2 BlueMoon Theater</a> <small class="date">- 2017/03/11(土)</small></li>
+	<li><a href="./million4th0312.html" title="THE IDOLM@STER MILLION LIVE! 4thLIVE TH@NK YOU for SMILE!! DAY3 Starlight Theater">DAY3 Starlight Theater</a> <small class="date">- 2017/03/12(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="6">THE IDOLM@STER SideM 2nd STAGE 〜ORIGIN@L STARS〜 <span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./sidem2nd0211.html" title="THE IDOLM@STER SideM 2nd STAGE 〜ORIGIN@L STARS〜 Shining Side (1日目)">Shining Side (1日目)</a> <small class="date">- 2017/02/11(土)</small></li>
+	<li><a href="./sidem2nd0212.html" title="THE IDOLM@STER SideM 2nd STAGE 〜ORIGIN@L STARS〜 Brilliant Side (2日目)">Brilliant Side (2日目)</a> <small class="date">- 2017/02/12(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="1,3,9">THE IDOLM@STER PRODUCER MEETING 2017 765PRO ALLSTARS -Fun to the new vision!!- <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span>
+ <span class="visually-hidden">/</span> <span title="ディアリースターズ" class="badge small bg-imas-brand-dearlystars">DS</span>
+ <span class="visually-hidden">/</span> <span title="961プロダクション" class="badge small bg-imas-brand-961pro">961プロ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./live20170128.html" title="THE IDOLM@STER PRODUCER MEETING 2017 765PRO ALLSTARS -Fun to the new vision!!- 1日目">1日目</a> <small class="date">- 2017/01/28(土)</small></li>
+	<li><a href="./live20170129.html" title="THE IDOLM@STER PRODUCER MEETING 2017 765PRO ALLSTARS -Fun to the new vision!!- 2日目">2日目</a> <small class="date">- 2017/01/29(日)</small></li>
+	</ul>
+</li>
+</ul>
+</div>
+
+<div class="section">
+<h2>2016年</h2>
+<ul>
+<li data-brand-ids="4">THE IDOLM@STER CINDERELLA GIRLS 4thLIVE TriCastle Story <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./cinderella4th0903.html" title="THE IDOLM@STER CINDERELLA GIRLS 4thLIVE TriCastle Story 神戸公演1日目">神戸公演1日目</a> <small class="date">- 2016/09/03(土)</small></li>
+	<li><a href="./cinderella4th0904.html" title="THE IDOLM@STER CINDERELLA GIRLS 4thLIVE TriCastle Story 神戸公演1日目">神戸公演2日目</a> <small class="date">- 2016/09/04(日)</small></li>
+	<li><a href="./cinderella4th1015.html" title="THE IDOLM@STER CINDERELLA GIRLS 4thLIVE TriCastle Story SSA公演1日目">SSA公演1日目</a> <small class="date">- 2016/10/15(土)</small></li>
+	<li><a href="./cinderella4th1016.html" title="THE IDOLM@STER CINDERELLA GIRLS 4thLIVE TriCastle Story SSA公演2日目">SSA公演2日目</a> <small class="date">- 2016/10/16(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="5">THE IDOLM@STER MILLION LIVE! 3rdLIVE TOUR BELIEVE MY DRE@M!! <span class="visually-hidden">(</span><span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./million3rd0131.html" title="THE IDOLM@STER MILLION LIVE! 3rdLIVE TOUR BELIEVE MY DRE@M!! 名古屋公演">名古屋公演</a> <small class="date">- 2016/01/31(日)</small></li>
+	<li><a href="./million3rd0207.html" title="THE IDOLM@STER MILLION LIVE! 3rdLIVE TOUR BELIEVE MY DRE@M!! 仙台公演">仙台公演</a> <small class="date">- 2016/02/07(日)</small></li>
+	<li><a href="./million3rd0312.html" title="THE IDOLM@STER MILLION LIVE! 3rdLIVE TOUR BELIEVE MY DRE@M!! 大阪公演1日目">大阪公演1日目</a> <small class="date">- 2016/03/12(土)</small></li>
+	<li><a href="./million3rd0313.html" title="THE IDOLM@STER MILLION LIVE! 3rdLIVE TOUR BELIEVE MY DRE@M!! 大阪公演2日目">大阪公演2日目</a> <small class="date">- 2016/03/13(日)</small></li>
+	<li><a href="./million3rd0403.html" title="THE IDOLM@STER MILLION LIVE! 3rdLIVE TOUR BELIEVE MY DRE@M!! 福岡公演">福岡公演</a> <small class="date">- 2016/04/03(日)</small></li>
+	<li><a href="./million3rd0416.html" title="THE IDOLM@STER MILLION LIVE! 3rdLIVE TOUR BELIEVE MY DRE@M!! 幕張公演1日目">幕張公演1日目</a> <small class="date">- 2016/04/16(土)</small></li>
+	<li><a href="./million3rd0417.html" title="THE IDOLM@STER MILLION LIVE! 3rdLIVE TOUR BELIEVE MY DRE@M!! 幕張公演2日目">幕張公演2日目</a> <small class="date">- 2016/04/17(日)</small></li>
+	<li><a href="./million3rd_songs.html" title="THE IDOLM@STER MILLION LIVE! 3rdLIVE TOUR BELIEVE MY DRE@M!! 全日程の楽曲まとめ">楽曲まとめ</a> <small class="date">- 楽曲と収録CDの一覧</small></li>
+	</ul>
+</li>
+</ul>
+</div>
+
+<div class="section">
+<h2>2015年</h2>
+<ul>
+<li data-brand-ids="6" class="mb-3"><a href="./sidem1st.html">THE IDOLM@STER SideM 1st STAGE 〜ST@RTING!〜</a> <small class="date">- 2015/12/06(日)</small>
+	<span class="visually-hidden">(</span><span title="SideM" class="badge small bg-imas-brand-sidem">SideM</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="4">THE IDOLM@STER CINDERELLA GIRLS 3rdLIVE シンデレラの舞踏会 -Power of Smile- <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./cinderella3rd1128.html" title="THE IDOLM@STER CINDERELLA GIRLS 3rdLIVE シンデレラの舞踏会 -Power of Smile- 1日目">DAY1</a> <small class="date">- 2015/11/28(土)</small></li>
+	<li><a href="./cinderella3rd1129.html" title="THE IDOLM@STER CINDERELLA GIRLS 3rdLIVE シンデレラの舞踏会 -Power of Smile- 2日目">DAY2</a> <small class="date">- 2015/11/29(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="4">アイドルマスターシンデレラガールズ SUMMER FESTIV@L 2015 <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./cinderella_20150802.html" title="アイドルマスターシンデレラガールズ SUMMER FESTIV@L 2015 東京公演">東京公演</a> <small class="date">- 2015/08/02(日)</small></li>
+	<li><a href="./cinderella_20150823.html" title="アイドルマスターシンデレラガールズ SUMMER FESTIV@L 2015 大阪公演">大阪公演</a> <small class="date">- 2015/08/23(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="1,4,5">THE IDOLM@STER M@STERS OF IDOL WORLD!!2015 <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span>
+ <span class="visually-hidden">/</span> <span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span>
+ <span class="visually-hidden">/</span> <span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./10th_day1.html" title="THE IDOLM@STER M@STERS OF IDOL WORLD!!2015 [DAY1]">DAY1</a> <small class="date">- 2015/07/18(土)</small></li>
+	<li><a href="./10th_day2.html" title="THE IDOLM@STER M@STERS OF IDOL WORLD!!2015 [DAY2]">DAY2</a> <small class="date">- 2015/07/19(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="5">THE IDOLM@STER MILLION LIVE! 2ndLIVE ENJOY H@RMONY!! <span class="visually-hidden">(</span><span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./million2nd0404.html" title="THE IDOLM@STER MILLION LIVE! 2ndLIVE ENJOY H@RMONY!! [DAY1]">DAY1</a> <small class="date">- 2015/04/04(土)</small></li>
+	<li><a href="./million2nd0405.html" title="THE IDOLM@STER MILLION LIVE! 2ndLIVE ENJOY H@RMONY!! [DAY2]">DAY2</a> <small class="date">- 2015/04/05(日)</small></li>
+	<li><a href="./million2nd_songs.html" title="THE IDOLM@STER MILLION LIVE! 2ndLIVE ENJOY H@RMONY!! 2日間の楽曲まとめ">楽曲まとめ</a> <small class="date">- 楽曲と収録CDの一覧</small></li>
+	</ul>
+</li>
+</ul>
+</div>
+
+<div class="section">
+<h2>2014年</h2>
+<ul>
+<li data-brand-ids="4" class="mb-3"><a href="./cinderella2nd.html" title="THE IDOLM@STER CINDERELLA GIRLS 2stLIVE PARTY M@GIC!!">THE IDOLM@STER CINDERELLA GIRLS 2stLIVE PARTY M@GIC!!</a> <small class="date">- 2014/11/30(日)</small>
+	<span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="1">THE IDOLM@STER 9th ANNIVERSARY WE ARE M@STERPIECE!! <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./9th_osaka0802.html" title="THE IDOLM@STER 9th ANNIVERSARY WE ARE M@STERPIECE!! 大阪公演1日目">大阪公演1日目</a> <small class="date">- 2014/08/02(土)</small></li>
+	<li><a href="./9th_osaka0803.html" title="THE IDOLM@STER 9th ANNIVERSARY WE ARE M@STERPIECE!! 大阪公演2日目">大阪公演2日目</a> <small class="date">- 2014/08/03(日)</small></li>
+	<li><a href="./9th_nagoya0816.html" title="THE IDOLM@STER 9th ANNIVERSARY WE ARE M@STERPIECE!! 名古屋公演1日目">名古屋公演1日目</a> <small class="date">- 2014/08/16(土)</small></li>
+	<li><a href="./9th_nagoya0817.html" title="THE IDOLM@STER 9th ANNIVERSARY WE ARE M@STERPIECE!! 名古屋公演2日目">名古屋公演2日目</a> <small class="date">- 2014/08/17(日)</small></li>
+	<li><a href="./9th_tokyo1004.html" title="THE IDOLM@STER 9th ANNIVERSARY WE ARE M@STERPIECE!! 東京公演1日目">東京公演1日目</a> <small class="date">- 2014/10/04(土)</small></li>
+	<li><a href="./9th_tokyo1005.html" title="THE IDOLM@STER 9th ANNIVERSARY WE ARE M@STERPIECE!! 東京公演2日目">東京公演2日目</a> <small class="date">- 2014/10/05(日)</small></li>
+	<li><a href="./9th_songs.html" title="THE IDOLM@STER 9th ANNIVERSARY WE ARE M@STERPIECE!! 全公演の楽曲まとめ">全公演の楽曲まとめ</a> <small class="date">- 楽曲と収録CDの一覧</small></li>
+	</ul>
+</li>
+<li data-brand-ids="5">THE IDOLM@STER MILLION LIVE 1stLIVE HAPPY☆PERFORM@NCE!! <span class="visually-hidden">(</span><span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./million1st0607.html" title="THE IDOLM@STER MILLION LIVE 1stLIVE HAPPY☆PERFORM@NCE!! [DAY1]">DAY1</a> <small class="date">- 2014/06/07(土)</small></li>
+	<li><a href="./million1st0608.html" title="THE IDOLM@STER MILLION LIVE 1stLIVE HAPPY☆PERFORM@NCE!! [DAY2]">DAY2</a> <small class="date">- 2014/06/08(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="4">THE IDOLM@STER CINDERELLA GIRLS 1stLIVE WONDERFUL M@GIC!! <span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./cinderella1st0405.html" title="THE IDOLM@STER CINDERELLA GIRLS 1stLIVE WONDERFUL M@GIC!! [DAY1]">DAY1</a> <small class="date">- 2014/04/05(土)</small></li>
+	<li><a href="./cinderella1st0406.html" title="THE IDOLM@STER CINDERELLA GIRLS 1stLIVE WONDERFUL M@GIC!! [DAY2]">DAY2</a> <small class="date">- 2014/04/06(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="1,3,4,5">THE IDOLM@STER M@STERS OF IDOL WORLD!!2014 <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span>
+ <span class="visually-hidden">/</span> <span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span>
+ <span class="visually-hidden">/</span> <span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span>
+ <span class="visually-hidden">/</span> <span title="ディアリースターズ" class="badge small bg-imas-brand-dearlystars">DS</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./ssa20140222.html" title="THE IDOLM@STER M@STERS OF IDOL WORLD!!2014 [DAY1]">DAY1</a> <small class="date">- 2014/02/22(土)</small></li>
+	<li><a href="./ssa20140223.html" title="THE IDOLM@STER M@STERS OF IDOL WORLD!!2014 [DAY2]">DAY2</a> <small class="date">- 2014/02/23(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="4"><a href="./lisani_live4.html">リスアニ！LIVE4 アイドルマスターシンデレラガールズ</a> <small class="date">- 2014/01/25(土)</small>
+	<span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span></li>
+</ul>
+</div>
+
+<div class="section">
+<h2>2013年</h2>
+<ul>
+<li data-brand-ids="5" class="mb-3"><a href="./million_radio_20131229.html">THE IDOLM@STER MILLION RADIO SPECIAL PARTY 01 〜2013年はThank You!〜</a> <small class="date">- 2013/12/29(日)</small>
+	<span class="visually-hidden">(</span><span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="1,4,5">THE IDOLM@STER 8th ANNIVERSARY HOP!STEP!!FESTIV@L!!! <span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span>
+ <span class="visually-hidden">/</span> <span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span>
+ <span class="visually-hidden">/</span> <span title="ミリオンライブ！" class="badge small bg-imas-brand-million">ミリオン</span><span class="visually-hidden">)</span>
+	<ul>
+	<li><a href="./8th_nagoya.html" title="THE IDOLM@STER 8th ANNIVERSARY HOP!STEP!!FESTIV@L!! @NAGOYA0707">@NAGOYA0707</a> <small class="date">- 2013/07/07(日)</small></li>
+	<li><a href="./8th_osaka0720.html" title="THE IDOLM@STER 8th ANNIVERSARY HOP!STEP!!FESTIV@L!! @OSAKA0720">@OSAKA0720</a> <small class="date">- 2013/07/20(土)</small></li>
+	<li><a href="./8th_osaka0721.html" title="THE IDOLM@STER 8th ANNIVERSARY HOP!STEP!!FESTIV@L!! @OSAKA0721">@OSAKA0721</a> <small class="date">- 2013/07/21(日)</small></li>
+	<li><a href="./8th_yokohama.html" title="THE IDOLM@STER 8th ANNIVERSARY HOP!STEP!!FESTIV@L!! @YOKOHAMA0804">@YOKOHAMA0804</a> <small class="date">- 2013/08/04(日)</small></li>
+	<li><a href="./8th_fukuoka.html" title="THE IDOLM@STER 8th ANNIVERSARY HOP!STEP!!FESTIV@L!!! @FUKUOKA0915">@FUKUOKA0915</a> <small class="date">- 2013/09/15(日)</small></li>
+	<li><a href="./8th_makuhari.html" title="THE IDOLM@STER 8th ANNIVERSARY HOP!STEP!!FESTIV@L!!! @MAKUHARI0921/MAKUHARI0922">@MAKUHARI0921/MAKUHARI0922</a> <small class="date">- 2013/09/21(土), 2013/09/22(日)</small></li>
+	</ul>
+</li>
+<li data-brand-ids="1"><a href="./chokaigi2013.html">ニコニコ超アニソンフェス@ニコニコ超会議2</a> <small class="date">- 2013/04/28(日)</small>
+	<span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="4"><a href="./wf2013w.html">「アイドルマスター シンデレラガールズ『デレラジ』」スペシャルステージ</a> <small class="date">- 2013/02/10(日)</small>
+	<span class="visually-hidden">(</span><span title="シンデレラガールズ" class="badge small bg-imas-brand-cinderella">シンデレラ</span><span class="visually-hidden">)</span></li>
+<li data-brand-ids="1"><a href="./2013winter.html">THE IDOLM@STER MUSIC FESTIV@L OF WINTER!!</a> <small class="date">- 2013/02/10(日)</small>
+	<span class="visually-hidden">(</span><span title="765PRO ALLSTARS" class="badge small bg-imas-brand-765as">765AS</span><span class="visually-hidden">)</span></li>
+</ul>
+</div>
+
+<p class="notes">(過去イベントに関しては後日掲載予定です)</p>
+
+<!--
+<aside>
+<script type="text/javascript">
+(function () {
+	var scriptUrl = '//ad.jp.ap.valuecommerce.com/servlet/smartphonebanner?sid=3468660&pid=885919350&position=inline';
+	try {
+		if (window.screen.width >= 768) {
+			scriptUrl = '//ad.jp.ap.valuecommerce.com/servlet/jsbanner?sid=3468660&pid=885917708';
+		}
+	} catch(exception) {
+		// do nothing
+	}
+	document.write('<script type="text/javascript" src="' + scriptUrl.replace(/&/g, '&amp;') + '"></script>');
+})();
+</script>
+<noscript><a href="//ck.jp.ap.valuecommerce.com/servlet/referral?sid=3468660&amp;pid=885917708" target="_blank" rel="nofollow"><img src="//ad.jp.ap.valuecommerce.com/servlet/gifbanner?sid=3468660&amp;pid=885917708" border="0" width="100%"></a></noscript>
+</aside>
+//-->
+<!--
+<aside class="d-md-flex justify-content-center mx-2 my-3 bg-body-secondary rounded-1 position-relative p-1">
+	<div class="position-absolute top-0 start-0 m-1 text-secondary">[広告]</div>
+	<div class="text-center m-2">
+		<script language="javascript" src="//ad.jp.ap.valuecommerce.com/servlet/jsbanner?sid=3468660&amp;pid=889896606"></script>
+		<noscript><a href="//ck.jp.ap.valuecommerce.com/servlet/referral?sid=3468660&amp;pid=889896606" rel="nofollow"><img src="//ad.jp.ap.valuecommerce.com/servlet/gifbanner?sid=3468660&amp;pid=889896606" border="0"></a></noscript>
+	</div>
+	<div class="text-center m-2">
+		<script language="javascript" src="//ad.jp.ap.valuecommerce.com/servlet/jsbanner?sid=3468660&amp;pid=889896608"></script>
+		<noscript><a href="//ck.jp.ap.valuecommerce.com/servlet/referral?sid=3468660&amp;pid=889896608" rel="nofollow"><img src="//ad.jp.ap.valuecommerce.com/servlet/gifbanner?sid=3468660&amp;pid=889896608" border="0"></a></noscript>
+	</div>
+</aside>
+-->
+<!--
+<aside class="d-flex justify-content-center mx-2 my-3 bg-body-secondary rounded-1 position-relative p-1">
+	<div class="position-absolute top-0 start-0 m-1 text-secondary">[広告]</div>
+	<div class="text-center m-2 w-50">
+		<a href="https://www.amazon.co.jp/dp/B0DC9B5XWS?tag=imas-db-22&amp;linkCode=osi&amp;th=1&psc=1" rel="nofollow" target="_blank">
+			<img class="img-fluid" src="https://m.media-amazon.com/images/I/51CKiXhdgkL.jpg" alt="ラバーマスコットバディコレ 学園アイドルマスター (BOX) 約70mm PVC製 ボールチェーンつきラバーマスコット"><br>
+			<small>Amazon.co.jp - ラバーマスコットバディコレ 学園アイドルマスター (BOX)</small>
+		</a>
+	</div>
+	<div class="text-center m-2 w-50">
+		<a href="https://www.amazon.co.jp/dp/B0DC991MRK?tag=imas-db-22&amp;linkCode=osi&amp;th=1&psc=1" rel="nofollow" target="_blank">
+			<img class="img-fluid" src="https://m.media-amazon.com/images/I/51US09gFbxL.jpg" alt="トコトコアクリルスタンド 学園アイドルマスター (BOX) 約90mm アクリル製"><br>
+			<small>Amazon.co.jp - トコトコアクリルスタンド 学園アイドルマスター (BOX)</small>
+		</a>
+	</div>
+</aside>
+-->
+<aside class="mx-2 my-3 bg-body-secondary rounded-1 p-1">
+	<div class="text-secondary d-md-none">[広告]</div>
+	<div class="d-flex justify-content-center">
+		<div class=""><script language="javascript" src="//ad.jp.ap.valuecommerce.com/servlet/smartphonebanner?sid=3468660&amp;pid=885919350&amp;position=inline"></script></div>
+		<div class="d-none d-md-block ms-2"><span class="text-secondary">[広告] <a href="//ck.jp.ap.valuecommerce.com/servlet/referral?sid=3468660&amp;pid=885929024&amp;vc_url=https%3A%2F%2Fshop.columbia.jp%2Fshop%2Fe%2Feimascind%2F%3Futm_source%3Dvc%26utm_medium%3Daffiliate%26utm_campaign%3Dvcmylink%26argument%3DNqhqWCbs%26dmai%3Da59013df992553" rel="nofollow">コロムビアミュージックショップ: アイドルマスターシンデレラガールズ関連商品 (ライブ限定CD・ライブBlu-rayなど)<img src="//ad.jp.ap.valuecommerce.com/servlet/gifbanner?sid=3468660&amp;pid=885929024" border="0" width="0" height="1"></a></span></div>
+	</div>
+</aside>
+
+</main>
+
+<hr>
+
+<footer id="maruamyu-footer">
+<div class="container-fluid">
+<nav aria-label="breadcrumb"><ol class="breadcrumb">
+<li class="breadcrumb-item"><a href="/" title="「THE IDOLM@STER データベース」のトップページ">トップ</a></li>
+<li class="breadcrumb-item"><a href="../">楽曲・CDデータ</a></li>
+<li class="breadcrumb-item active" aria-current="page"><em>ライブイベント</em></li>
+</ol></nav>
+</div>
+<div class="container-fluid">
+<div class="maruamyu-social-btn"></div>
+<div id="footer-about">
+<ul>
+<li>このサイトは個人により運営されている非公式ファンサイトです。<a href="https://info.imas-db.jp/about/">このサイトについて</a></li>
+<li>managed by <a href="https://x.com/imas_DB" target="_blank" rel="noopener">@imas_DB</a>/<a href="https://x.com/maruamyu" target="_blank" rel="noopener">@maruamyu</a></li>
+<li>アイコン画像制作: <a href="https://x.com/itomxy" target="_blank" rel="noopener">イトマ(@itomxy)</a></li>
+<li>&copy;2007-2024 maruamyu.net</li>
+<li>THE IDOLM@STER: &copy;<abbr title="(株)バンダイナムコエンターテインメント">BNEI</abbr></li>
+</ul>
+</div>
+<div class="row">
+<div id="footer-maruamyu" class="col-sm-6"><a href="https://maruamyu.net/" class="link_favicon favicon_maruamyu">まるあみゅ.ねっと プロジェクト</a></div>
+<div id="footer-scroll" class="col-sm-6"><a href="#" id="footer-scroll-link" class="btn btn-light btn-sm"><u>▲</u> ページの一番上へ</a></div>
+</div>
+</div>
+</footer>
+
+
+</body>
+</html>

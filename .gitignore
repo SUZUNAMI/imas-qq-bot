@@ -1,0 +1,37 @@
+# 运行时产物
+state.db
+state*.db
+logs/
+*.log
+
+# M7 运行时产物（本地留档 / 企划记忆）
+data/archive/
+data/m7_brands.json
+
+# 密钥与配置（外置且不进 git）
+.env
+config.yaml
+
+# 本机沙箱产物（vendor 依赖、探针临时文件）
+vendor/
+.tmp/
+
+# 迁移工具与密钥（绝不上传：含服务器密码 askpass.cmd、SSH 私钥 id_ed25519）
+tools/
+
+# 数据缓存（服务器上由 bot 自动重建）
+data/
+
+# 子工作区（songbot 已合并回主仓库，不单独上传）
+子任务-曲库查询/
+
+# 探针/临时文件
+.probe.db
+.probe_dir/
+.tmp_probe_root.txt
+.tmp_test/
+
+# Python
+__pycache__/
+*.pyc
+.venv/

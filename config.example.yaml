@@ -1,0 +1,64 @@
+# 复制为 config.yaml（不进 git；服务器上另行配置）。
+# M4 翻译模块配置。解析规则（低→高）：内置默认 < 本文件 < .env < 环境变量。
+# 本文件由轻量 YAML 子集解析（src/m4_translator.py 内置），支持注释/嵌套/标量；复杂结构请用 config.json。
+
+translator:
+  base_url: https://api.deepseek.com   # 或 https://api.deepseek.com/v1
+  model: deepseek-chat
+  temperature: 0.3                     # 翻译要稳定，不宜高
+  timeout: 60                          # 单次请求超时（秒）
+  max_retries: 2                       # 请求失败重试次数（指数退避）
+  # terms_file: terms.json             # 可选：外部术语表 JSON（覆盖/扩充下方 terms 与内置默认）
+
+# M6 QQ 推送模块配置（NapCatQQ / OneBot 11）。解析规则（低→高）：内置默认 < 本文件 < .env < 环境变量。
+# 环境变量：NAPCAT_BASE_URL / NAPCAT_TOKEN / NAPCAT_GROUP_IDS（逗号分隔）/ NAPCAT_INTERVAL_SEC。
+# group_ids 为「默认目标群」：M5/M7 传入的 message.group_ids 非空时以传入为准。
+napcat:
+  base_url: "http://127.0.0.1:3000"   # NapCat 的 HTTP 地址（OneBot 11）
+  token: ""                            # 可选，鉴权 token（NapCat 配置了才需要）
+  group_ids: ["123456789"]             # 默认目标群号（字符串；可多条）
+  interval_sec: 1.5                    # 群间发送间隔（秒），降低风控概率
+  timeout: 15                          # 单次请求超时（秒）
+  max_retries: 1                       # 单条消息失败重试次数（指数退避）
+  merge_forward: false                 # 合并转发：文本段+图片合并为一条「合并聊天记录」（send_forward_msg）；false=逐条发
+
+# M7 主控调度配置（轮询间隔 / 新闻 API 基址 / 开机关机通知）。命令行参数优先于本文件。
+orchestrator:
+  poll_interval_sec: 60                # 轮询间隔（秒）：1 分钟查询一次；--interval 可覆盖
+  api_base: https://cmsapi-frontend.idolmaster-official.jp/sitern/api/   # 新闻列表 CMS API 基址（含尾部斜杠）；站点调整/换源时改这里，无需改代码
+  notify_groups: ["123456789"]         # 开机/关机状态通知群；留空 [] 关闭
+  # 状态消息文案（可自定义；\n 表示换行）。占位符（写进文案即可自动替换）：
+  #   开机 {brands}监听企划 / {interval}轮询秒数 / {mode}模式 / {groups}推送目标群 / {cutoff}时间截断 / {time}当前时间
+  #   关机 {rounds}运行轮数 / {ok}推送成功条数 / {fail}失败条数 / {time}当前时间
+  notify_startup: "🤖 M7 爱马仕新闻转发机器人 已启动\n监听企划：{brands}\n轮询间隔：{interval} 秒\n模式：{mode}\n目标群：{groups}\n时间截断：{cutoff}\n启动时间：{time}"
+  notify_shutdown: "🤖 M7 已停止\n本次运行：{rounds} 轮 · 推送成功 {ok} 条 · 失败 {fail} 条\n停止时间：{time}"
+  # 默认只推送「启动时间之后更新」的新闻（旧新闻不补推，防首次启动刷屏）；--no-cutoff 可关闭
+
+# S6 songbot 主控配置（歌曲列表查询 bot）。
+# NapCat 侧前置：OneBot 11 HTTP server 追加 postUrls: ["http://127.0.0.1:<port>/event"]（messagePostFormat=array）。
+songbot:
+  port: 8090              # 事件接收器监听端口（NapCat postUrls 指向 http://127.0.0.1:8090/event）
+  ttl_sec: 300            # 两段交互会话 TTL（秒）
+  event_list_url: http://imas-db.jp/song/event   # 事件列表页（纯 HTTP）
+  index_cache: data/songbot_events.json  # 事件索引落盘缓存（空串关闭）
+  index_cache_ttl_sec: 86400             # 缓存有效期（秒），过期自动重抓
+  render_dir: data/songbot_img           # 歌曲列表图片输出目录
+  reply_limit: 10         # 时间筛选/候选列表单次回复上限（超出提示「还有 N 场」）
+  bindings_file: data/songbot_bindings.json  # 绑定别名落盘缓存（S9；空串关闭持久化）
+  song_index_cache: data/songbot_song_index.json  # S8 歌曲反向索引落盘缓存（空串关闭；无缓存时启动后台全量构建，每次 song 查询前增量刷新）
+  notify_groups: ["1033148779", "450599137"]  # 启动/结束状态通知群（S7：主群 + 测试群）；留空 [] 关闭
+  stop_file: data/songbot.stop                # 优雅停止请求文件（S7：stop_songbot.cmd 写入触发）；空串关闭
+  # 状态消息文案（可自定义；\n 表示换行）。占位符（写进文案即可自动替换）：
+  #   启动 {port}监听端口 / {events}事件数 / {year}最新年份 / {song_index}歌曲索引状态 / {ttl}会话TTL / {mode}模式 / {time}当前时间
+  #   停止 {started}启动时刻 / {stopped}停止时刻 / {time}停止时刻
+  notify_startup: "songbot 已启动（歌曲列表查询）\n监听 127.0.0.1:{port}/event · 事件索引 {events} 个（最新 {year} 年）\n歌曲反向索引：{song_index}\n会话 TTL {ttl}s · 模式：{mode}"
+  notify_shutdown: "songbot 已停止\n启动于 {started} · 停止于 {stopped}"
+
+# 术语表（可选）：随 system prompt 注入；未列出的专名保持原文或用通用译名。
+# 内置默认已含：アイドルマスター→偶像大师 / アイマス→爱马仕 / シャイニーカラーズ→闪耀色彩 /
+# ミリオンライブ→百万现场 / シンデレラガールズ→灰姑娘女孩 / SideM→SideM / 学園アイドルマスター→学园偶像大师。
+terms:
+  アイドルマスター: 偶像大师
+  アイマス: 爱马仕
+  # 在此继续扩充，例如：
+  # 新規ワード: 新词

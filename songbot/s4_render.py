@@ -448,7 +448,20 @@ def _render_worker_loop() -> None:
     if _PLAYWRIGHT_OK:
         try:
             pw = sync_playwright().start()
-            browser = pw.chromium.launch(channel=EDGE_CHANNEL, headless=True)
+            # M9 服务器 2GB 内存优化：单进程/限渲染进程/限 JS 堆，降渲染峰值内存（自建 HTML 简单，单进程够用）
+            browser = pw.chromium.launch(
+                channel=EDGE_CHANNEL, headless=True,
+                args=[
+                    '--disable-gpu',
+                    '--disable-dev-shm-usage',
+                    '--single-process',
+                    '--renderer-process-limit=1',
+                    '--js-flags=--max-old-space-size=256',
+                    '--no-sandbox',
+                    '--disable-extensions',
+                    '--disable-background-networking',
+                ],
+            )
         except Exception as exc:  # noqa: BLE001
             logger.warning("渲染 worker 启动浏览器失败（渲染将回退 Edge CLI）: %s: %s",
                            type(exc).__name__, exc)

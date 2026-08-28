@@ -323,6 +323,7 @@ def _yaml_scalar(val: str):
 # ---------------------------------------------------------------------------
 # 输入归一化（鸭子类型：本类 / 任意契约 dataclass / dict）
 # ---------------------------------------------------------------------------
+# 必填字段（ats 为可选回复归属，缺省空列表，不参与必填校验——dict 输入可省略）
 _MESSAGE_FIELDS = ("group_ids", "segments", "images", "link")
 
 
@@ -346,6 +347,7 @@ def _coerce_message(message) -> PushMessage:
         segments=[str(x) for x in (src.get("segments") or [])],
         images=[str(x) for x in (src.get("images") or [])],
         link=str(src.get("link") or ""),
+        ats=[str(x) for x in (src.get("ats") or [])],
     )
 
 
@@ -489,10 +491,17 @@ def _build_forward_nodes(msg: PushMessage, uin: str, name: str) -> list[dict]:
     每个文本段一个 node（M5 已按 3500 字/段落边界分片，作为独立气泡）；全部配图合并为一个 node。
     """
     nodes: list[dict] = []
-    for seg in msg.segments:
-        nodes.append({"type": "node", "data": {"uin": uin, "name": name, "content": [_text_segment(seg)]}})
+    ats = getattr(msg, "ats", None) or []
+    for i, seg in enumerate(msg.segments):
+        content = [_text_segment(seg)]
+        if i == 0 and ats:
+            content = [{"type": "at", "data": {"qq": str(q)}} for q in ats] + content
+        nodes.append({"type": "node", "data": {"uin": uin, "name": name, "content": content}})
     if msg.images:
-        nodes.append({"type": "node", "data": {"uin": uin, "name": name, "content": [_image_segment(u) for u in msg.images]}})
+        content = [_image_segment(u) for u in msg.images]
+        if ats:
+            content = [{"type": "at", "data": {"qq": str(q)}} for q in ats] + content
+        nodes.append({"type": "node", "data": {"uin": uin, "name": name, "content": content}})
     return nodes
 
 
@@ -592,6 +601,12 @@ def _push_one_group(client, cfg: NotifierConfig, group: str, msg: PushMessage) -
         messages: list[list[dict]] = [[_text_segment(seg)] for seg in msg.segments]
         if msg.images:
             messages.append([_image_segment(url) for url in msg.images])
+        # @ 归属（songbot 回复用，契约同步自 ref/m6_notifier.py）：拼为独立 at 段
+        # 附在第一条消息前（与文本/图片同一条发出）；CQ 码嵌 text 在 NapCat array
+        # 消息形态下会字面显示，须用独立 at 段。
+        ats = getattr(msg, "ats", None) or []
+        if ats and messages:
+            messages[0] = [{"type": "at", "data": {"qq": str(q)}} for q in ats] + messages[0]
     except Exception as exc:  # noqa: BLE001 — 构建消息段不应中断整轮
         return PushResult(group_id=group, ok=False, message_id="", error=f"消息段构建失败: {exc}")
 

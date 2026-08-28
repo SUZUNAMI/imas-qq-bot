@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 
@@ -51,6 +51,9 @@ class PushMessage:
     segments: list[str]     # 已分好片的文本段，M6 按顺序逐条发送
     images: list[str]       # 配图 URL 数组，可为空 []
     link: str               # 原文链接
+    ats: list[str] = field(default_factory=list)
+    # 回复归属（2026-08-27 songbot 追加，契约同步自 ref/models.py）：需 @ 的 QQ 列表，
+    # M6 拼为独立 at 段附在首段文本/图片前（空 = 不 @）。默认空列表，向后兼容 M5/M6/M7 既有用法。
 
 
 @dataclass

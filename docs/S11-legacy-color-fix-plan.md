@@ -68,3 +68,43 @@ docs/modules/S11-legacy-color-fix-worklog.md
 | 早期版式多样（类名前缀不一） | `span[class^="idol_"]` 宽匹配，无法解析的类名记日志跳过 |
 | 部分类无颜色定义 | 无匹配颜色给 `None`（保持现状，不崩） |
 | 近期版式回归 | 跑 S2 既有 46/46 单测 + 三 fixture 渲染回归 |
+
+---
+
+## 6. 补充发现（2026-08-27）— 近期版式 `character_colors` 被 `color-overwrite` 规则污染 ✅ 已修复
+
+**症状**：283 Production LIVE Performance Uka（`shinycolors_283_uka.html`，近期版式）渲染应援色不正确。
+
+**根因**：站点 CSS 对 `data-character-id` 有两套规则，且「后定义覆盖」：
+
+| 规则 | 含义 |
+|---|---|
+| `.idol-name[data-character-id="N"]{border-color:#个人色}` | 纯个人应援色 |
+| `.idol-name-color-overwrite-group .idol-name[data-character-id="N"]{border-color:#组合色}` | 单元公演时整团用组合色覆盖个人色 |
+
+`scripts/refresh_site_colors.py` 的 `_extract_rule_colors` 把两套规则**都**提取进 `character_colors`，按 CSS 顺序「后定义覆盖」→ 组合色把个人色盖掉（实测污染 **77 条** character-id）。
+
+实测：`character_colors["344"]`（小宮果穂）被污染成 `#fa8333`（组合色），正确个人色应为 `#e5461c`；该页 HTML **不含** `color-overwrite-group` 类，本应显示个人色 → 渲染错误。
+
+**修复（2026-08-27 已完成）**：
+1. ✅ `scripts/refresh_site_colors.py`：`_extract_rule_colors` **跳过选择器含 `color-overwrite` 的规则**（个人色只取纯 `.idol-name[data-character-id="N"]` 规则；src/ref 两副本同步）。
+2. ✅ 重跑 `scripts/refresh_site_colors.py` 重新生成 `data/songbot_site_colors.json`（`character_colors["344"]` 恢复 `#e5461c`，其余表不变；附带确认 300 号角色个人色本就等于组合色 `#008e74`，非污染）。
+3. ⏳ 服务器部署后重跑索引/`@bot refresh` 让 setlist 缓存带上正确颜色（本地已由 M9 打包时随代码分发新 JSON）。
+
+**连带契约同步（2026-08-27 修复）**：全量单测暴露 `src/models.py` 的 `PushMessage` 缺 `ats` 字段（songbot 已用 `ref/models.py` 版本，M 模块测试先 import 缓存旧契约 → `PushMessage(ats=…)` TypeError，5 项测试失败）；已同步：
+- `src/models.py` PushMessage 补 `ats: list[str] = field(default_factory=list)`（与 ref 对齐，契约文档 module-specs §1.4 本已含 `ats`）；
+- `src/m6_notifier.py` 同步 ats 支持（`_coerce_message` / 普通推送首段 / 合并转发首 node 拼 at 段，与 ref 一致）；
+- `_MESSAGE_FIELDS` 修正：`ats` 为**可选**字段，不进必填校验（src/ref 对齐）；
+- 全量 566/566 单测全绿（主仓库根 cwd）。
+
+## 7. 两个关联观察的审查结论（2026-08-27 复查）
+
+**观察 A：CSS 有 `.idol-name[data-person-id="N"]` 规则，但提取与 `_idol_color` 未处理 person-id。**
+- 实测：CSS 有 **360 条** `data-person-id` 规则；765AS 页演者 span **同时**带 `data-character-id` 与 `data-person-id`（春香 character-id=1 且 person-id=1）。
+- 结论：**非当前缺陷**。`data-character-id` 已覆盖同一批偶像（`character_colors["1"]=#e22b30`、`["2"]=#2743d2` 正确），person-id 是一套**并行冗余方案**，被忽略不产生可见错误。
+- 处置：**暂不改**；若后续发现某品牌只带 person-id 不带 character-id 而掉色，再补 `person_colors` 表与 `_idol_color` 兜底。
+
+**观察 B：`.idol-name-color-overwrite-group` 模式未识别。**
+- 实测：CSS 有该覆盖规则（单元公演整团同色）；但抽样 8 场 live（IWSF / CG 音乐剧 / 学园等）**均未启用** `color-overwrite-group`。
+- 结论：**潜在风险，当前无页面触发**；若未来某页启用，现有 `character > group` 优先级会错误给个人色（应为组合色）。
+- 处置：**记录在案，不提前实现**；待出现实际页面时再在 S2 解析容器类并调整优先级。

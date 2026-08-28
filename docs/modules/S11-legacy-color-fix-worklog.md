@@ -98,3 +98,40 @@ docs/modules/S11-legacy-color-fix-worklog.md
 - **idol_class_colors 数量**：174 条为「有 color 定义」口径；CSS 内全部 `idol_*` 类约 384 个
   （含无颜色/非颜色规则），刷新脚本已全部扫描。
 - S10（列表图片渲染 + @only 门控）仍待执行，S11 未触碰 bot.py 命令流。
+
+---
+
+## 6. 追加修复（2026-08-27 深夜复查，见计划 §6/§7）
+
+### 6.1 `character_colors` 被 `color-overwrite` 规则污染（计划 §6，✅ 已修复）
+
+- **症状**：近期版式（283 UNIT LIVE Performance Uka 等）个人应援色被组合色覆盖——
+  `character_colors["344"]`（小宮果穂）=`#fa8333`（组合色），正确 `#e5461c`；
+  CSS 实测 **77 条** character-id 受影响。
+- **根因**：站点 CSS 对 `data-character-id` 有两套规则（纯个人色 / `color-overwrite-group`
+  组合色覆盖），`_extract_rule_colors` 按「后定义覆盖」把覆盖规则也收进 `character_colors`。
+- **修复**：`_extract_rule_colors` 跳过选择器含 `color-overwrite` 的规则；
+  重跑 `refresh_site_colors.py` 重新生成 JSON —— `character_colors["344"]=#e5461c` 恢复，
+  组合色值不再出现在 character 表（300 号 `#008e74` 为本人个人色，非污染）；
+  `idol_class_colors` 174 / group 48 / attr 11 / brand 14 不变。
+- **验证**：`python scripts/refresh_site_colors.py` → 输出 14/14/11/48/348/174/6，
+  character 表无 `#fff68d/#853998/#fa8333/#ff699e/#af011c/#384d98/#008e74/#333` 泄漏
+  （300 除外，其纯个人色规则即 `#008e74`）。
+
+### 6.2 连带：`PushMessage` 契约 `ats` 不同步（全量单测 5 项失败，✅ 已修复）
+
+- **症状**：主仓库全量单测（含 M1–M7 模块测试）5 项 ERROR：
+  `PushMessage.__init__() got an unexpected keyword argument 'ats'`
+  （`tests/test_s6_bot.py::TestReplyAttribution` 5 用例）。
+- **根因**：M 模块测试先 `sys.path.insert(0, src)` 并 import 了 **`src/models.py`**（旧契约，
+  PushMessage 无 `ats`）→ `sys.modules["models"]` 缓存旧类；随后 songbot 的 bot.py
+  `from models import PushMessage` 拿到缓存旧契约，而 `_default_sender` 传 `ats=…` → TypeError。
+  songbot 用 `ref/models.py`（有 ats）与主契约 `src/models.py`（无 ats）**不同步**。
+- **修复**：
+  - `src/models.py` PushMessage 补 `ats: list[str] = field(default_factory=list)`
+    （module-specs §1.4 契约文档本已含 `ats`，代码未跟上）；
+  - `src/m6_notifier.py` 同步 ats 支持（`_coerce_message` 解析 / 普通推送首段拼 at 段 /
+    合并转发首 node 拼 at 段，对齐 ref 版）；
+  - `_MESSAGE_FIELDS` 修正：`ats` 为**可选**字段，不进必填校验（src/ref 两副本对齐）。
+- **验证**：主仓库根 cwd 全量 `python -m unittest discover -s tests` → **566/566 OK**
+  （含此前失败的 TestReplyAttribution 5 项；S4 渲染 33 项亦全绿）。

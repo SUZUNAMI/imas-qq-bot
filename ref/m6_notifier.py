@@ -323,7 +323,9 @@ def _yaml_scalar(val: str):
 # ---------------------------------------------------------------------------
 # 输入归一化（鸭子类型：本类 / 任意契约 dataclass / dict）
 # ---------------------------------------------------------------------------
-_MESSAGE_FIELDS = ("group_ids", "segments", "images", "link", "ats")
+# 必填字段（ats 为可选回复归属，缺省空列表，不参与必填校验——dict 输入可省略；
+# 与 src/m6_notifier.py 对齐，2026-08-27 契约同步）
+_MESSAGE_FIELDS = ("group_ids", "segments", "images", "link")
 
 
 def _coerce_message(message) -> PushMessage:

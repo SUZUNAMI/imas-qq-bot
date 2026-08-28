@@ -47,11 +47,19 @@ def _extract_rule_colors(css: str, attr: str) -> dict:
     处理逗号分隔的共享块（多个选择器共用一个声明块，如
     ``.idol-name[data-character-id="1"],.idol-name[data-character-id="2"]{border-color:#xxx}``），
     每个匹配的 id 都记录；按 CSS 出现顺序遍历，后定义覆盖先定义（与浏览器一致）。
+
+    S11 §6 修复（2026-08-27）：**跳过 ``color-overwrite`` 覆盖规则**——站点对
+    ``data-character-id`` 有两套规则：纯个人色 ``.idol-name[data-character-id="N"]{border-color:个人色}``
+    与单元公演覆盖色 ``.idol-name-color-overwrite-group .idol-name[data-character-id="N"]{border-color:组合色}``；
+    后者仅在该页启用 ``color-overwrite-group`` 容器类时生效，不应进入 ``character_colors``
+    （否则「后定义覆盖」会把个人色污染成组合色，实测影响 77 条，如 344 小宮果穂 #e5461c → #fa8333）。
     """
     out: dict[str, str] = {}
     for m in re.finditer(r"([^{}]+)\{([^}]*)\}", css):
         sel, body = m.group(1), m.group(2)
         if attr not in sel or "idol-name" not in sel:
+            continue
+        if "color-overwrite" in sel:   # S11 §6：覆盖规则不进基础色表
             continue
         bc = re.search(r"border-color:\s*([^;}]+)", body)
         if not bc:

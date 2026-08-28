@@ -1300,8 +1300,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     bot.start_song_index()                        # S8：加载缓存或后台全量构建歌曲反向索引
     bot.song_refresher = bot._song_refresher      # S9 update live 钩子：重建歌曲索引
 
-    # M9 2GB 内存优化：不预热浏览器（warmup 常驻 ~140MB Edge）；
-    # worker 惰性启动——首次查询时冷启动（约 15s），之后浏览器常驻复用（2-3s）。
+    warmup_browser()                              # 预热渲染 worker（worker 线程内启动浏览器，线程安全）
 
     receiver = EventReceiver(bot.handle, port=cfg.port)
     receiver.start()

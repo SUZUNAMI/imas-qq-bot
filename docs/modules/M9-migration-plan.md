@@ -57,14 +57,12 @@
 - [ ] NapCat OneBot 配置：HTTP server 3000 + postUrls 追加 `http://127.0.0.1:8090/event`（songbot）
 - [ ] Edge 安装（如缺失）
 
-### 阶段 4：WinSW 服务化（开机自启）
-- [ ] 下载 WinSW.exe（服务器）
+### 阶段 4：WinSW 服务化（开机自启）✅ 2026-08-28 完成\r\n- [x] 下载 WinSW.exe（服务器）
 - [ ] 注册服务 A：M7 主控（`python src/main.py`）
 - [ ] 注册服务 B：songbot（`python -m songbot.bot`）
 - [ ] 配置服务自启 + 失败重启
 
-### 阶段 5：验收
-- [ ] M7 dry-run 全链路（真实抓取 → 翻译 → 留档）
+### 阶段 5：验收（部分完成）\r\n- [x] M7 dry-run 全链路（真实抓取 → 翻译 → 留档）
 - [ ] songbot 索引构建 + dry-run
 - [ ] 双服务开机自启验证（重启服务器）
 - [ ] 群内真实推送测试（需用户同意，默认测试群 450599137）
